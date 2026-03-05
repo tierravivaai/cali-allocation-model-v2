@@ -14,6 +14,7 @@ This interactive tool illustrates how Cali Fund allocations would be distributed
 - **High Income Filter**: Ability to toggle High Income countries out of the allocation pool (enabled by default).
 - **Transparency**: Toggle "Raw Inversion and Explanation" to see plain language and technical summaries of the methodology.
 - **TSAC & SOSAC Components**: Blended allocation formula incorporating land area (TSAC) and SIDS-specific structural adjustment (SOSAC).
+- **Negotiation Dashboard**: Advanced visualizations including winners/losers analysis, group impact charts, country-level waterfalls, and sensitivity heatmaps to support scenario exploration.
 
 ## Installation & Setup
 
