@@ -26,6 +26,7 @@ You are working on a policy-support tool for biodiversity fund allocation (Cali 
 6. **New Features**:
    - "Plain Language" and "Technical Summary" sections for explaining the model.
    - "Share by Income Group" tab.
+   - "Negotiation Dashboard" with Plotly-based visualizations for baseline comparison and sensitivity analysis.
    - Consistent "State then IPLC" column ordering.
 
 ## Technical Stack
