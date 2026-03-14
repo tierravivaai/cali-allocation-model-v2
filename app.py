@@ -90,7 +90,7 @@ fund_size_bn = st.sidebar.slider(
 st.sidebar.caption(f"= ${fund_size_bn * 1000:,.0f} million per year")
 
 # Negotiation Presets
-with st.sidebar.expander("Negotiation Presets", expanded=False):
+with st.sidebar.expander("Negotiation Presets", expanded=True):
     col_p1, col_p2 = st.columns(2)
     # Row 1
     if col_p1.button("Equality", help="Even split between all eligible countries (Excludes HI except SIDS)"):
@@ -134,7 +134,7 @@ exclude_hi = st.sidebar.checkbox(
 )
 
 st.sidebar.divider()
-st.sidebar.header("Allocation Formula Weights")
+st.sidebar.header("Stewardship Allocation Weights")
 
 tsac_beta = st.sidebar.slider(
     "Land Area Weight (TSAC)",
@@ -142,16 +142,16 @@ tsac_beta = st.sidebar.slider(
     max_value=0.30,
     step=0.01,
     key="tsac_beta",
-    help="Weight for the land-area proportional component (TSAC)."
+    help="Weight for the Terrestrial Stewardship Allocation Component (TSAC)."
 )
 
 sosac_gamma = st.sidebar.slider(
-    "SIDS Structural Weight (SOSAC)",
+    "SIDS Oceans Weight (SOSAC)",
     min_value=0.0,
     max_value=0.20,
     step=0.01,
     key="sosac_gamma",
-    help="Weight for the SIDS-only structural adjustment component (SOSAC)."
+    help="Weight for the SIDS Ocean Stewardship Allocation Component (SOSAC)."
 )
 
 # Dynamic Interpretation Boxes
@@ -300,24 +300,56 @@ results_df = calculate_allocations(
     equality_mode=st.session_state.get("equality_mode", False)
 )
 
-# Baseline for comparison (beta=0, gamma=0, equality=False)
-results_df_baseline = calculate_allocations(
-    st.session_state.base_df,
-    fund_size_usd,
-    iplc_share,
-    False, # show_raw
-    exclude_hi,
-    floor_pct=floor_pct,
-    ceiling_pct=ceiling_pct,
-    tsac_beta=0.0,
-    sosac_gamma=0.0,
-    equality_mode=False
-)
+# Baseline Logic
+# 1. If we are in Inverted Scale (beta=0, gamma=0, equality=False), 
+#    the baseline should be Equality (equality=True).
+# 2. If we are in any other preset (Stewardship, Balanced, etc.),
+#    the baseline should be Inverted Scale (beta=0, gamma=0, equality=False).
+# 3. If we are in Equality preset (equality=True), metrics should be 0 (baseline = current).
+
+is_eq_mode = st.session_state.get("equality_mode", False)
+is_inverted_scale = (tsac_beta == 0 and sosac_gamma == 0 and not is_eq_mode)
+
+if is_eq_mode:
+    # Equality preset selected: No baseline comparison
+    results_df_baseline = results_df.copy()
+    baseline_label = "Equality"
+elif is_inverted_scale:
+    # Inverted Scale selected: Compare against Equality
+    results_df_baseline = calculate_allocations(
+        st.session_state.base_df,
+        fund_size_usd,
+        iplc_share,
+        False, # show_raw
+        exclude_hi,
+        floor_pct=floor_pct,
+        ceiling_pct=ceiling_pct,
+        tsac_beta=0.0,
+        sosac_gamma=0.0,
+        equality_mode=True
+    )
+    baseline_label = "Equality"
+else:
+    # Stewardship/Balanced selected: Compare against Inverted Scale (IUSAF)
+    results_df_baseline = calculate_allocations(
+        st.session_state.base_df,
+        fund_size_usd,
+        iplc_share,
+        False, # show_raw
+        exclude_hi,
+        floor_pct=floor_pct,
+        ceiling_pct=ceiling_pct,
+        tsac_beta=0.0,
+        sosac_gamma=0.0,
+        equality_mode=False
+    )
+    baseline_label = "IUSAF"
 
 # Merge baseline for comparison
 comparison_df = results_df[['party', 'total_allocation', 'WB Income Group', 'region', 'is_ldc', 'is_sids', 'is_cbd_party', 'eligible']].copy()
 comparison_df = comparison_df.rename(columns={'total_allocation': 'current_amt'})
 comparison_df['baseline_amt'] = results_df_baseline['total_allocation']
+
 comparison_df['delta_amt'] = comparison_df['current_amt'] - comparison_df['baseline_amt']
 comparison_df['pct_change'] = (comparison_df['delta_amt'] / comparison_df['baseline_amt'].replace(0, np.nan)) * 100
 
@@ -402,12 +434,12 @@ if st.session_state.get("show_negotiation_dashboard", True):
         losers = (comparison_df['delta_amt'] < -0.001).sum()
         unchanged = len(comparison_df[comparison_df['eligible']]) - winners - losers
         
-        col1.metric("Gainers vs Baseline", winners, delta=None)
-        col2.metric("Losers vs Baseline", losers, delta=None)
+        col1.metric(f"Increases vs Baseline ({baseline_label})", winners, delta=None)
+        col2.metric(f"Decreases vs Baseline ({baseline_label})", losers, delta=None)
         col3.metric("Unchanged", unchanged)
         
         total_shift = comparison_df[comparison_df['delta_amt'] > 0]['delta_amt'].sum()
-        col4.metric("Reallocated Amount", f"US${total_shift:,.2f}m", help="Total amount shifted from 'losers' to 'winners' compared to pure IUSAF.")
+        col4.metric("Reallocated Amount", f"US${total_shift:,.2f}m", help=f"Total amount shifted from 'losers' to 'winners' compared to {baseline_label}.")
 
         st.divider()
         
@@ -415,8 +447,9 @@ if st.session_state.get("show_negotiation_dashboard", True):
         chart_col1, chart_col2 = st.columns(2)
         
         with chart_col1:
-            if tsac_beta == 0 and sosac_gamma == 0:
-                st.write("**Top 10 & Bottom 10 Recipients (IUSAF Base) (US$m)**")
+            if is_eq_mode or is_inverted_scale:
+                title = f"**Top 10 & Bottom 10 Recipients ({'Equality' if is_eq_mode else 'IUSAF Base'}) (US$m)**"
+                st.write(title)
                 # Filter for non-zero allocations to show meaningful "Bottom 10"
                 non_zero_base = comparison_df[comparison_df['current_amt'] > 0.0001].copy()
                 
@@ -429,11 +462,6 @@ if st.session_state.get("show_negotiation_dashboard", True):
                 bottom_iusaf['category'] = 'Bottom 10'
                 
                 # For display in px.bar orientation='h'
-                # Bottom 10 should be at the bottom, Top 10 at the top.
-                # Plotly plots from bottom of the Y-axis upward.
-                # To show Top 10 at the top, they should be last in the dataframe.
-                # To show them in alphabetical order (Top-to-Bottom), 
-                # they should be in REVERSE alphabetical order in the dataframe.
                 combined_iusaf = pd.concat([
                     bottom_iusaf.sort_values(['current_amt', 'party'], ascending=[False, False]),
                     top_iusaf.sort_values(['current_amt', 'party'], ascending=[True, False])
@@ -448,16 +476,21 @@ if st.session_state.get("show_negotiation_dashboard", True):
                     color_discrete_map={'Top 10': '#1f77b4', 'Bottom 10': '#94a3b8'}, # Blue and Neutral Gray
                     labels={'current_amt': 'Allocation (US$m)', 'party': 'Country', 'category': 'Group'}
                 )
-                fig.update_layout(showlegend=True, height=500, margin=dict(l=0, r=0, t=0, b=0))
+                fig.update_layout(
+                    showlegend=True, 
+                    height=500, 
+                    margin=dict(l=150, r=50, t=40, b=40)
+                )
+                fig.update_yaxes(automargin=True)
             else:
-                st.write("**Top 10 Winners & Losers (US$m)**")
+                st.write(f"**Top 10 Increases & Decreases vs {baseline_label} (US$m)**")
                 # Consistent Winners: Sort by Delta (desc) then Alphabetical (asc)
                 top_winners = comparison_df.sort_values(['delta_amt', 'party'], ascending=[False, True]).head(10).copy()
-                top_winners['category'] = 'Top 10 Winners'
+                top_winners['category'] = 'Top 10 Increases'
                 
                 # Consistent Losers: Sort by Delta (asc) then Alphabetical (asc)
                 top_losers = comparison_df.sort_values(['delta_amt', 'party'], ascending=[True, True]).head(10).copy()
-                top_losers['category'] = 'Top 10 Losers'
+                top_losers['category'] = 'Top 10 Decreases'
                 
                 # For display: Losers at bottom, Winners at top. 
                 # Reverse alphabetical for top-to-bottom visual order in Plotly 'h'
@@ -475,46 +508,89 @@ if st.session_state.get("show_negotiation_dashboard", True):
                     color_continuous_scale='RdBu_r',
                     labels={'delta_amt': 'Delta (US$m)', 'party': 'Country'}
                 )
-                fig.update_layout(showlegend=False, height=500, margin=dict(l=0, r=0, t=0, b=0))
+                fig.update_layout(
+                    showlegend=False, 
+                    height=500, 
+                    margin=dict(l=150, r=50, t=40, b=40)
+                )
+                fig.update_yaxes(automargin=True)
             st.plotly_chart(fig, use_container_width=True)
 
         with chart_col2:
             group_type = st.selectbox("Compare by:", ["region", "WB Income Group", "is_ldc", "is_sids"], key="group_impact_type")
             
-            if tsac_beta == 0 and sosac_gamma == 0:
-                st.write(f"**Group Totals (IUSAF Base) (US$m)**")
-                group_total = comparison_df.groupby(group_type)['current_amt'].sum().sort_values(ascending=True)
+            if (tsac_beta == 0 and sosac_gamma == 0) or st.session_state.get("equality_mode", False):
+                title = "**Group Totals (IUSAF Base) (US$m)**" if not st.session_state.get("equality_mode") else "**Group Totals (Equality) (US$m)**"
+                st.write(title)
+                
+                # Filter for eligible parties only for aggregation
+                eligible_comp = comparison_df[comparison_df['eligible']].copy()
+                
+                group_stats = eligible_comp.groupby(group_type).agg(
+                    total_amt=('current_amt', 'sum'),
+                    party_count=('party', 'count')
+                ).sort_values('total_amt', ascending=True)
+                
                 # Formatting for display
                 if group_type == "is_ldc":
-                    group_total.index = group_total.index.map({True: "LDC", False: "Non-LDC"})
+                    group_stats.index = group_stats.index.map({True: "LDC", False: "Non-LDC"})
                 if group_type == "is_sids":
-                    group_total.index = group_total.index.map({True: "SIDS", False: "Non-SIDS"})
+                    group_stats.index = group_stats.index.map({True: "SIDS", False: "Non-SIDS"})
+                
+                # Prepare custom text: "$Value (Count countries)"
+                group_stats['display_text'] = group_stats.apply(
+                    lambda x: f"${x['total_amt']:,.1f}m ({int(x['party_count'])})", axis=1
+                )
                 
                 fig = px.bar(
-                    x=group_total.values,
-                    y=group_total.index,
+                    group_stats,
+                    x='total_amt',
+                    y=group_stats.index,
                     orientation='h',
-                    labels={'x': 'Total Allocation (US$m)', 'y': 'Group'}
+                    text='display_text',
+                    labels={'total_amt': 'Total Allocation (US$m)', 'y': 'Group'}
                 )
+                fig.update_traces(textposition='outside')
+                fig.update_yaxes(automargin=True)
+                fig.update_layout(height=400, margin=dict(l=150, r=120, t=40, b=40))
             else:
                 st.write("**Group Impact (Share % Change)**")
-                group_baseline = comparison_df.groupby(group_type)['baseline_amt'].sum()
-                group_current = comparison_df.groupby(group_type)['current_amt'].sum()
-                group_impact = (((group_current / group_baseline.replace(0, np.nan)) - 1) * 100).sort_values(ascending=True)
+                eligible_comp = comparison_df[comparison_df['eligible']].copy()
+                
+                group_baseline = eligible_comp.groupby(group_type)['baseline_amt'].sum()
+                group_current = eligible_comp.groupby(group_type)['current_amt'].sum()
+                group_counts = eligible_comp.groupby(group_type)['party'].count()
+                
+                group_impact = (((group_current / group_baseline.replace(0, np.nan)) - 1) * 100)
+                
+                group_stats = pd.DataFrame({
+                    'impact': group_impact,
+                    'party_count': group_counts
+                }).sort_values('impact', ascending=True)
                 
                 # Formatting for display
                 if group_type == "is_ldc":
-                    group_impact.index = group_impact.index.map({True: "LDC", False: "Non-LDC"})
+                    group_stats.index = group_stats.index.map({True: "LDC", False: "Non-LDC"})
                 if group_type == "is_sids":
-                    group_impact.index = group_impact.index.map({True: "SIDS", False: "Non-SIDS"})
+                    group_stats.index = group_stats.index.map({True: "SIDS", False: "Non-SIDS"})
+                
+                # Prepare custom text: "%Impact (Count countries)" - Round to whole numbers
+                group_stats['display_text'] = group_stats.apply(
+                    lambda x: f"{int(round(x['impact']))}% ({int(x['party_count'])})", axis=1
+                )
                     
                 fig = px.bar(
-                    x=group_impact.values,
-                    y=group_impact.index,
+                    group_stats,
+                    x='impact',
+                    y=group_stats.index,
                     orientation='h',
-                    labels={'x': '% Change in Total Share', 'y': 'Group'}
+                    text='display_text',
+                    labels={'impact': '% Change in Total Share', 'y': 'Group'}
                 )
-            fig.update_layout(height=400, margin=dict(l=0, r=0, t=0, b=0))
+                fig.update_traces(textposition='outside')
+                fig.update_yaxes(automargin=True)
+                fig.update_layout(height=400, margin=dict(l=150, r=120, t=40, b=40))
+                st.caption("*Percentages are rounded to the nearest whole number.")
             st.plotly_chart(fig, use_container_width=True)
 
         st.divider()
@@ -528,14 +604,15 @@ if st.session_state.get("show_negotiation_dashboard", True):
             row = results_df[results_df['party'] == target_party].iloc[0]
             
             # We need to compute deltas for the waterfall
-            # IUSAF Base is effective_alpha * iusaf_share * fund_size
-            # TSAC Adjustment is effective_beta * tsac_share * fund_size
-            # SOSAC Adjustment is effective_gamma * sosac_share * fund_size
-            
+            is_eq = st.session_state.get("equality_mode", False)
+            base_label = "Equality Base" if is_eq else "Inverted Scale (IUSAF) Base"
+            tsac_label = "TSAC Adjustment" if not is_eq else "TSAC (0)"
+            sosac_label = "SOSAC Adjustment" if not is_eq else "SOSAC (0)"
+
             fig = go.Figure(go.Waterfall(
                 name = "Allocation", orientation = "v",
                 measure = ["relative", "relative", "relative", "total"],
-                x = ["IUSAF Base", "TSAC Adjustment", "SOSAC Adjustment", "Final Allocation"],
+                x = [base_label, tsac_label, sosac_label, "Final Allocation"],
                 textposition = "outside",
                 text = [f"${row['component_iusaf_amt']:,.2f}m", f"${row['component_tsac_amt']:,.2f}m", f"${row['component_sosac_amt']:,.2f}m", f"${row['total_allocation']:,.2f}m"],
                 y = [row['component_iusaf_amt'], row['component_tsac_amt'], row['component_sosac_amt'], 0],

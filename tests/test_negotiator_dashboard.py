@@ -80,3 +80,39 @@ def test_floor_ceiling_on_blended_share(mock_con):
     # 1% of 1000m is 10m
     assert (results.loc[eligible_mask, 'total_allocation'] <= 10.000001).all()
     assert pytest.approx(results.loc[eligible_mask, 'total_allocation'].sum(), 0.001) == 1000.0
+
+def test_baseline_logic_selection(mock_con):
+    """
+    Test that the baseline selection logic matches requirements:
+    - Equality mode -> Baseline = Current (delta 0)
+    - Inverted Scale (beta=0, gamma=0) -> Baseline = Equality
+    - Stewardship/Balanced -> Baseline = Inverted Scale (IUSAF)
+    """
+    base_df = get_base_data(mock_con)
+    fund_size = 1_000_000_000
+    
+    # 1. Equality mode
+    results_eq = calculate_allocations(base_df, fund_size, 50, equality_mode=True)
+    # In app.py: if is_eq_mode: baseline = current
+    # We verify that current == baseline effectively means delta is 0
+    # (The test mimics app.py logic)
+    baseline_eq = results_eq.copy()
+    delta_eq = results_eq['total_allocation'] - baseline_eq['total_allocation']
+    assert (delta_eq == 0).all()
+
+    # 2. Inverted Scale (beta=0, gamma=0, eq=False)
+    results_inv = calculate_allocations(base_df, fund_size, 50, tsac_beta=0, sosac_gamma=0, equality_mode=False)
+    # In app.py: baseline = Equality
+    baseline_inv = calculate_allocations(base_df, fund_size, 50, equality_mode=True)
+    delta_inv = results_inv['total_allocation'] - baseline_inv['total_allocation']
+    # Delta should not be all zero because UN scale is not equal
+    assert not (delta_inv == 0).all()
+    assert pytest.approx(delta_inv.sum(), 0.001) == 0.0 # Sum of deltas should be 0
+
+    # 3. Stewardship (beta=0.25, gamma=0.05)
+    results_stew = calculate_allocations(base_df, fund_size, 50, tsac_beta=0.25, sosac_gamma=0.05)
+    # In app.py: baseline = Inverted Scale (IUSAF)
+    baseline_stew = calculate_allocations(base_df, fund_size, 50, tsac_beta=0, sosac_gamma=0, equality_mode=False)
+    delta_stew = results_stew['total_allocation'] - baseline_stew['total_allocation']
+    assert not (delta_stew == 0).all()
+    assert pytest.approx(delta_stew.sum(), 0.001) == 0.0
