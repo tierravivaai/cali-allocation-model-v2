@@ -4,3 +4,4 @@ pandas
 pytest
 jinja2
 plotly
+PyYAML

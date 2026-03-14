@@ -57,6 +57,8 @@ if "sort_option" not in st.session_state:
     st.session_state["sort_option"] = "Allocation (highest first)"
 if "show_negotiation_dashboard" not in st.session_state:
     st.session_state["show_negotiation_dashboard"] = True
+if "un_scale_mode" not in st.session_state:
+    st.session_state["un_scale_mode"] = "raw_inversion"
 
 # Sidebar Controls
 st.sidebar.header("Controls")
@@ -78,6 +80,7 @@ if st.sidebar.button("Reset to default"):
     st.session_state["show_advanced"] = False
     st.session_state["sort_option"] = "Allocation (highest first)"
     st.session_state["show_negotiation_dashboard"] = True
+    st.session_state["un_scale_mode"] = "raw_inversion"
     st.rerun()
 
 fund_size_bn = st.sidebar.slider(
@@ -282,6 +285,22 @@ show_advanced = st.sidebar.toggle("Show advanced component breakdown", key="show
 
 st.sidebar.toggle("Enable Negotiation Dashboard", key="show_negotiation_dashboard")
 
+st.sidebar.divider()
+st.sidebar.header("UN Scale Treatment")
+un_scale_mode = st.sidebar.selectbox(
+    "Calculation Method",
+    options=["Raw inversion", "Band-based inversion"],
+    index=0 if st.session_state["un_scale_mode"] == "raw_inversion" else 1,
+    help="Choose how the UN scale is used to determine baseline weights."
+)
+st.session_state["un_scale_mode"] = "raw_inversion" if un_scale_mode == "Raw inversion" else "band_inversion"
+
+if st.session_state["un_scale_mode"] == "band_inversion":
+    st.sidebar.info(
+        "**Band-based inversion** groups countries into broad UN assessment bands and applies a transparent graduated uplift, "
+        "instead of mechanically inverting every small difference in the UN scale."
+    )
+
 sort_option = st.sidebar.selectbox(
     "Sort results by",
     options=["Allocation (highest first)", "Country name (A–Z)"],
@@ -298,7 +317,8 @@ results_df = calculate_allocations(
     ceiling_pct=ceiling_pct,
     tsac_beta=tsac_beta,
     sosac_gamma=sosac_gamma,
-    equality_mode=st.session_state.get("equality_mode", False)
+    equality_mode=st.session_state.get("equality_mode", False),
+    un_scale_mode=st.session_state.get("un_scale_mode", "raw_inversion")
 )
 
 # Baseline Logic
@@ -416,7 +436,8 @@ tabs = [
     "Low Income",
     "Middle Income",
     "High Income",
-    "SIDS"
+    "SIDS",
+    "Inversion Comparison"
 ]
 
 if st.session_state.get("show_negotiation_dashboard", True):
@@ -684,6 +705,9 @@ with main_tabs[current_tab_idx]:
         # Add component shares and amounts to display
         display_cols.extend(['iusaf_share', 'tsac_share', 'sosac_share', 'component_iusaf_amt', 'component_tsac_amt', 'component_sosac_amt'])
     
+    if st.session_state["un_scale_mode"] == "band_inversion":
+        display_cols.extend(['un_band', 'un_band_weight'])
+
     if show_raw:
         st.info("""
     **How the Calculation Works (Plain Language)**
@@ -1229,6 +1253,80 @@ with main_tabs[current_tab_idx]:
     col1.metric("High Income State Component", format_currency(hi_total['state_component']))
     col2.metric("High Income IPLC Component", format_currency(hi_total['iplc_component']))
 
+current_tab_idx += 1
+with main_tabs[current_tab_idx]:
+    st.subheader("Comparison: Raw Inversion vs Band-based Inversion")
+    
+    # Calculate both modes for comparison
+    comp_raw = calculate_allocations(
+        st.session_state.base_df, fund_size_usd, iplc_share, False, exclude_hi, 
+        floor_pct, ceiling_pct, tsac_beta, sosac_gamma, equality_mode=False, un_scale_mode="raw_inversion"
+    )
+    comp_band = calculate_allocations(
+        st.session_state.base_df, fund_size_usd, iplc_share, False, exclude_hi, 
+        floor_pct, ceiling_pct, tsac_beta, sosac_gamma, equality_mode=False, un_scale_mode="band_inversion"
+    )
+    
+    # Equal share reference
+    n_eligible = results_df['eligible'].sum()
+    equal_share_m = (fund_size_usd / n_eligible) / 1_000_000 if n_eligible > 0 else 0
+    
+    # Merge for comparison
+    m_comp = comp_raw[['party', 'un_share', 'total_allocation']].rename(columns={'total_allocation': 'raw_amt'})
+    m_comp['band_amt'] = comp_band['total_allocation']
+    m_comp['un_band'] = comp_band['un_band']
+    m_comp['diff_amt'] = m_comp['band_amt'] - m_comp['raw_amt']
+    m_comp['equal_share'] = equal_share_m
+    
+    # Stats
+    above_raw = (m_comp['raw_amt'] > equal_share_m).sum()
+    above_band = (m_comp['band_amt'] > equal_share_m).sum()
+    
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Above Equal Share (Raw)", int(above_raw))
+    c2.metric("Above Equal Share (Band)", int(above_band))
+    c3.metric("Equal Share Reference", f"${equal_share_m:.2f}m")
+    
+    st.divider()
+    
+    # Charts
+    chart_c1, chart_c2 = st.columns(2)
+    with chart_c1:
+        st.write("**Countries Above/Below Equal Share**")
+        status_data = pd.DataFrame({
+            'Method': ['Raw Inversion', 'Raw Inversion', 'Band-based', 'Band-based'],
+            'Status': ['Above', 'Below', 'Above', 'Below'],
+            'Count': [above_raw, n_eligible - above_raw, above_band, n_eligible - above_band]
+        })
+        fig_status = px.bar(status_data, x='Method', y='Count', color='Status', barmode='group')
+        fig_status.update_layout(height=400)
+        st.plotly_chart(fig_status, use_container_width=True)
+        
+    with chart_c2:
+        st.write("**Top 10 Gaining from Banding (US$m)**")
+        gaining = m_comp.sort_values('diff_amt', ascending=False).head(10).copy()
+        fig_gain = px.bar(gaining, x='diff_amt', y='party', orientation='h', labels={'diff_amt': 'Gain (US$m)', 'party': 'Country'})
+        fig_gain.update_layout(yaxis={'categoryorder':'total ascending'}, height=400)
+        st.plotly_chart(fig_gain, use_container_width=True)
+        
+    st.write("**Comparison Table**")
+    m_comp['diff_from_equal_raw'] = m_comp['raw_amt'] - equal_share_m
+    m_comp['diff_from_equal_band'] = m_comp['band_amt'] - equal_share_m
+    
+    st.dataframe(
+        m_comp[['party', 'un_share', 'un_band', 'raw_amt', 'band_amt', 'equal_share', 'diff_from_equal_raw', 'diff_from_equal_band']],
+        column_config={
+            "party": "Country",
+            "un_share": st.column_config.NumberColumn("UN Share (%)", format="%.4f"),
+            "raw_amt": st.column_config.NumberColumn("Raw Allocation (m)", format="$%.2f"),
+            "band_amt": st.column_config.NumberColumn("Band Allocation (m)", format="$%.2f"),
+            "equal_share": st.column_config.NumberColumn("Equal Share (m)", format="$%.2f"),
+            "diff_from_equal_raw": st.column_config.NumberColumn("Diff (Raw - Equal)", format="$%.2f"),
+            "diff_from_equal_band": st.column_config.NumberColumn("Diff (Band - Equal)", format="$%.2f"),
+        },
+        hide_index=True,
+        width="stretch"
+    )
 
 st.divider()
 st.markdown("""

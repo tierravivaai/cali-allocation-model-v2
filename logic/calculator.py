@@ -1,4 +1,40 @@
 import pandas as pd
+import yaml
+import os
+
+def load_band_config():
+    config_path = os.path.join("config", "un_scale_bands.yaml")
+    if not os.path.exists(config_path):
+        return None
+    with open(config_path, "r") as f:
+        return yaml.safe_load(f)
+
+def assign_un_band(un_share, config):
+    if config is None or "bands" not in config:
+        return None, 1.0
+    
+    # Ensure un_share is float
+    try:
+        val = float(un_share)
+    except (ValueError, TypeError):
+        val = 0.0
+
+    for band in config["bands"]:
+        min_t = float(band.get("min_threshold", -999999.0))
+        max_t = float(band.get("max_threshold", 999999.0))
+        
+        # Band logic: (min_t < share <= max_t)
+        if val > min_t and val <= max_t:
+            return band.get("label"), float(band.get("weight", 1.0))
+    
+    # Fallback for 0.0 if not caught (should be caught by id: 1)
+    if val == 0.0:
+        # Manually return Band 1 if it exists
+        for band in config["bands"]:
+            if band.get("id") == 1:
+                return band.get("label"), float(band.get("weight", 1.50))
+            
+    return None, 1.0
 
 def _apply_floor_ceiling_shares(weights: pd.Series, floor: float, cap: float) -> pd.Series:
     w = weights.fillna(0.0).clip(lower=0.0)
@@ -65,13 +101,18 @@ def calculate_allocations(
     tsac_beta=0.15,
     sosac_gamma=0.10,
     high_income_mode="exclude_except_sids",
-    equality_mode=False
+    equality_mode=False,
+    un_scale_mode="raw_inversion"
 ):
     # Filter out parties with 0 share for inversion logic (except for display later)
     # But for Cali Fund, we need to invert the non-zero ones.
     
     calc_df = df.copy()
     
+    # Initialize extra columns
+    calc_df["un_band"] = None
+    calc_df["un_band_weight"] = 1.0
+
     # 1. Define eligibility
     # Rule (recommended): If exclude_high_income == True and mode is "exclude_except_sids", 
     # then: Parties are excluded if income_group == "High income" AND is_sids == False.
@@ -99,45 +140,33 @@ def calculate_allocations(
         effective_beta = 0.0
         effective_gamma = 0.0
     else:
-        # Inversion logic: only for eligible parties with shares > 0
-        # The source 'un_share' is expressed as a percentage (e.g. 5.469)
-        # First convert it to a fraction by dividing by 100.
-        mask = calc_df["eligible"] & (calc_df['un_share'] > 0) & (calc_df['un_share'].notna())
-        
-        calc_df.loc[mask, 'un_share_fraction'] = calc_df.loc[mask, 'un_share'] / 100.0
-        calc_df.loc[mask, 'inv_weight'] = 1.0 / calc_df.loc[mask, 'un_share_fraction']
-        
-        calc_df.loc[~mask, 'un_share_fraction'] = 0.0
-        calc_df.loc[~mask, 'inv_weight'] = 0.0
-        
+        # IUSAF Calculation
         calc_df["iusaf_share"] = 0.0
-
-        eligible_mask = calc_df["eligible"] & (calc_df["un_share"] > 0) & (calc_df["un_share"].notna())
-        eligible_idx = calc_df.index[eligible_mask]
+        # Include all eligible countries, even if un_share is 0 (for band inversion)
+        if un_scale_mode == "band_inversion":
+            mask = calc_df["eligible"] & (calc_df['un_share'].notna())
+        else:
+            mask = calc_df["eligible"] & (calc_df['un_share'] > 0) & (calc_df['un_share'].notna())
+        
+        eligible_idx = calc_df.index[mask]
 
         if len(eligible_idx) > 0:
-            # We compute IUSAF shares using the floor/ceiling logic if requested
-            # Note: Floor/Ceiling should probably apply to the FINAL share, 
-            # but to keep it simple and consistent with instructions, 
-            # we'll compute component shares first.
-            
-            # In this implementation, we'll apply floor/ceiling to the IUSAF component
-            # as a baseline if needed, but the original request implies blending 
-            # components then normalizing.
-            
-            # However, to maintain the existing floor/ceiling functionality 
-            # which was designed for the single-component model, 
-            # we'll apply it to the iusaf_share baseline.
-            
-            # If we want it on the FINAL share, we'd do it after blending.
-            # Let's keep it as is for now, computing iusaf_share baseline.
-            
-            baseline_floor = 0.0 # Floor/ceiling on components is tricky, usually done on FINAL
-            baseline_cap = 1.0
-            
-            # Actually, let's compute raw iusaf_share first
-            weights = calc_df.loc[eligible_idx, "inv_weight"]
-            calc_df.loc[eligible_idx, "iusaf_share"] = weights / weights.sum()
+            if un_scale_mode == "band_inversion":
+                config = load_band_config()
+                for idx in eligible_idx:
+                    share_val = float(calc_df.loc[idx, "un_share"])
+                    band_label, band_weight = assign_un_band(share_val, config)
+                    calc_df.loc[idx, "un_band"] = band_label
+                    calc_df.loc[idx, "un_band_weight"] = band_weight
+                
+                weights = calc_df.loc[eligible_idx, "un_band_weight"]
+                calc_df.loc[eligible_idx, "iusaf_share"] = weights / weights.sum()
+            else: # raw_inversion
+                calc_df.loc[mask, 'un_share_fraction'] = calc_df.loc[mask, 'un_share'] / 100.0
+                calc_df.loc[mask, 'inv_weight'] = 1.0 / calc_df.loc[mask, 'un_share_fraction']
+                
+                weights = calc_df.loc[eligible_idx, "inv_weight"]
+                calc_df.loc[eligible_idx, "iusaf_share"] = weights / weights.sum()
 
         # 2. Compute TSAC Share (Land Area)
         calc_df["tsac_share"] = 0.0
