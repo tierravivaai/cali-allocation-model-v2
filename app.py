@@ -58,7 +58,7 @@ if "sort_option" not in st.session_state:
 if "show_negotiation_dashboard" not in st.session_state:
     st.session_state["show_negotiation_dashboard"] = True
 if "un_scale_mode" not in st.session_state:
-    st.session_state["un_scale_mode"] = "raw_inversion"
+    st.session_state["un_scale_mode"] = "band_inversion"
 
 # Sidebar Controls
 st.sidebar.header("Controls")
@@ -80,7 +80,7 @@ if st.sidebar.button("Reset to default"):
     st.session_state["show_advanced"] = False
     st.session_state["sort_option"] = "Allocation (highest first)"
     st.session_state["show_negotiation_dashboard"] = True
-    st.session_state["un_scale_mode"] = "raw_inversion"
+    st.session_state["un_scale_mode"] = "band_inversion"
     st.rerun()
 
 fund_size_bn = st.sidebar.slider(
