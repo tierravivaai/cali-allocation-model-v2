@@ -17,11 +17,11 @@
 - Added TSAC and SOSAC sliders to the Streamlit sidebar in `app.py`.
 - Implemented dynamic interpretation boxes explaining the allocation impact of beta and gamma.
 - Created a "Negotiation Dashboard" tab with Plotly visualizations:
-  - Winners/Losers metrics and bar charts.
+  - Increases/Decreases metrics and bar charts.
   - Group impact analysis.
   - Country-level waterfall charts.
   - TSAC vs SOSAC sensitivity heatmap.
-- Added negotiation presets (Equity Base, Stewardship, Vulnerability, Balanced).
+- Added negotiation presets (Equality, Inverted UN Scale, Terrestrial Stewardship, Oceans Stewardship, Balanced).
 - Fixed tab NameErrors by using dynamic indexing.
 
 ### Testing
