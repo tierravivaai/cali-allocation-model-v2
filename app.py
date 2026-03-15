@@ -470,16 +470,16 @@ if st.session_state.get("show_negotiation_dashboard", True):
         
         # Summary Row
         col1, col2, col3, col4 = st.columns(4)
-        winners = (comparison_df['delta_amt'] > 0.001).sum()
-        losers = (comparison_df['delta_amt'] < -0.001).sum()
-        unchanged = len(comparison_df[comparison_df['eligible']]) - winners - losers
+        num_increases = (comparison_df['delta_amt'] > 0.001).sum()
+        num_decreases = (comparison_df['delta_amt'] < -0.001).sum()
+        unchanged = len(comparison_df[comparison_df['eligible']]) - num_increases - num_decreases
         
-        col1.metric(f"Increases vs Baseline ({baseline_label})", winners, delta=None)
-        col2.metric(f"Decreases vs Baseline ({baseline_label})", losers, delta=None)
+        col1.metric(f"Increases vs Baseline ({baseline_label})", num_increases, delta=None)
+        col2.metric(f"Decreases vs Baseline ({baseline_label})", num_decreases, delta=None)
         col3.metric("Unchanged", unchanged)
         
         total_shift = comparison_df[comparison_df['delta_amt'] > 0]['delta_amt'].sum()
-        col4.metric("Reallocated Amount", f"US${total_shift:,.2f}m", help=f"Total amount shifted from 'losers' to 'winners' compared to {baseline_label}.")
+        col4.metric("Reallocated Amount", f"US${total_shift:,.2f}m", help=f"Total amount shifted from countries with decreases to those with increases compared to {baseline_label}.")
 
         st.divider()
         
@@ -524,23 +524,23 @@ if st.session_state.get("show_negotiation_dashboard", True):
                 fig.update_yaxes(automargin=True)
             else:
                 st.write(f"**Top 10 Increases & Decreases vs {baseline_label} (US$m)**")
-                # Consistent Winners: Sort by Delta (desc) then Alphabetical (asc)
-                top_winners = comparison_df.sort_values(['delta_amt', 'party'], ascending=[False, True]).head(10).copy()
-                top_winners['category'] = 'Top 10 Increases'
+                # Consistent Increases: Sort by Delta (desc) then Alphabetical (asc)
+                top_increases = comparison_df.sort_values(['delta_amt', 'party'], ascending=[False, True]).head(10).copy()
+                top_increases['category'] = 'Top 10 Increases'
                 
-                # Consistent Losers: Sort by Delta (asc) then Alphabetical (asc)
-                top_losers = comparison_df.sort_values(['delta_amt', 'party'], ascending=[True, True]).head(10).copy()
-                top_losers['category'] = 'Top 10 Decreases'
+                # Consistent Decreases: Sort by Delta (asc) then Alphabetical (asc)
+                top_decreases = comparison_df.sort_values(['delta_amt', 'party'], ascending=[True, True]).head(10).copy()
+                top_decreases['category'] = 'Top 10 Decreases'
                 
-                # For display: Losers at bottom, Winners at top. 
+                # For display: Decreases at bottom, Increases at top. 
                 # Reverse alphabetical for top-to-bottom visual order in Plotly 'h'
-                win_loss_df = pd.concat([
-                    top_losers.sort_values(['delta_amt', 'party'], ascending=[False, False]),
-                    top_winners.sort_values(['delta_amt', 'party'], ascending=[True, False])
+                inc_dec_df = pd.concat([
+                    top_decreases.sort_values(['delta_amt', 'party'], ascending=[False, False]),
+                    top_increases.sort_values(['delta_amt', 'party'], ascending=[True, False])
                 ])
                 
                 fig = px.bar(
-                    win_loss_df, 
+                    inc_dec_df, 
                     x='delta_amt', 
                     y='party', 
                     orientation='h',
