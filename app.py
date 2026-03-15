@@ -93,6 +93,22 @@ fund_size_bn = st.sidebar.slider(
 )
 st.sidebar.caption(f"= ${fund_size_bn * 1000:,.0f} million per year")
 
+st.sidebar.divider()
+st.sidebar.header("UN Scale Treatment")
+un_scale_mode = st.sidebar.selectbox(
+    "Calculation Method",
+    options=["Raw inversion", "Band-based inversion"],
+    index=0 if st.session_state["un_scale_mode"] == "raw_inversion" else 1,
+    help="Choose how the UN scale is used to determine baseline weights."
+)
+st.session_state["un_scale_mode"] = "raw_inversion" if un_scale_mode == "Raw inversion" else "band_inversion"
+
+if st.session_state["un_scale_mode"] == "band_inversion":
+    st.sidebar.info(
+        "**Band-based inversion** groups countries into broad UN assessment bands and applies a transparent graduated uplift, "
+        "instead of mechanically inverting every small difference in the UN scale."
+    )
+
 # Negotiation Presets
 with st.sidebar.expander("Negotiation Presets", expanded=True):
     col_p1, col_p2 = st.columns(2)
@@ -284,22 +300,6 @@ use_thousands = st.sidebar.toggle("Display small values in thousands (USD '000)"
 show_advanced = st.sidebar.toggle("Show advanced component breakdown", key="show_advanced")
 
 st.sidebar.toggle("Enable Negotiation Dashboard", key="show_negotiation_dashboard")
-
-st.sidebar.divider()
-st.sidebar.header("UN Scale Treatment")
-un_scale_mode = st.sidebar.selectbox(
-    "Calculation Method",
-    options=["Raw inversion", "Band-based inversion"],
-    index=0 if st.session_state["un_scale_mode"] == "raw_inversion" else 1,
-    help="Choose how the UN scale is used to determine baseline weights."
-)
-st.session_state["un_scale_mode"] = "raw_inversion" if un_scale_mode == "Raw inversion" else "band_inversion"
-
-if st.session_state["un_scale_mode"] == "band_inversion":
-    st.sidebar.info(
-        "**Band-based inversion** groups countries into broad UN assessment bands and applies a transparent graduated uplift, "
-        "instead of mechanically inverting every small difference in the UN scale."
-    )
 
 sort_option = st.sidebar.selectbox(
     "Sort results by",
