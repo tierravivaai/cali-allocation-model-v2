@@ -809,7 +809,7 @@ For more detailed information see this [walkthrough](https://github.com/tierravi
     # Hide Countries (number) for the 'Total' row label if needed, but it's fine.
     
     st.dataframe(
-        filtered_df[display_cols[:1] + ["Countries (number)"] + display_cols[1:]],
+        filtered_df[display_cols],
         column_config=config,
         hide_index=True,
         width="stretch"
