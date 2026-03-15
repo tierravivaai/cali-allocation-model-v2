@@ -116,3 +116,37 @@ def test_baseline_logic_selection(mock_con):
     delta_stew = results_stew['total_allocation'] - baseline_stew['total_allocation']
     assert not (delta_stew == 0).all()
     assert pytest.approx(delta_stew.sum(), 0.001) == 0.0
+
+def test_un_scale_mode_consistency_in_baseline(mock_con):
+    """
+    Test that the baseline calculation respects the un_scale_mode (e.g. banding vs raw).
+    If we are in banding mode, both current and baseline should use banding.
+    """
+    base_df = get_base_data(mock_con)
+    fund_size = 1_000_000_000
+    
+    # Mode: band_inversion
+    un_mode = "band_inversion"
+    
+    # Current: Stewardship (beta=0.15, gamma=0.10) with banding
+    results = calculate_allocations(
+        base_df, fund_size, 50,
+        tsac_beta=0.15,
+        sosac_gamma=0.10,
+        un_scale_mode=un_mode
+    )
+    
+    # Baseline: Inverted Scale (beta=0, gamma=0) with banding
+    baseline = calculate_allocations(
+        base_df, fund_size, 50,
+        tsac_beta=0.0,
+        sosac_gamma=0.0,
+        un_scale_mode=un_mode
+    )
+    
+    # If both use banding, the sum of deltas should be zero
+    delta = results['total_allocation'] - baseline['total_allocation']
+    assert pytest.approx(delta.sum(), 0.001) == 0.0
+    
+    # Check that baseline has un_band assigned (meaning it used banding)
+    assert baseline['un_band'].notna().any()

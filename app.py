@@ -347,7 +347,8 @@ elif is_inverted_scale:
         ceiling_pct=ceiling_pct,
         tsac_beta=0.0,
         sosac_gamma=0.0,
-        equality_mode=True
+        equality_mode=True,
+        un_scale_mode=st.session_state.get("un_scale_mode", "raw_inversion")
     )
     baseline_label = "Equality"
 else:
@@ -362,7 +363,8 @@ else:
         ceiling_pct=ceiling_pct,
         tsac_beta=0.0,
         sosac_gamma=0.0,
-        equality_mode=False
+        equality_mode=False,
+        un_scale_mode=st.session_state.get("un_scale_mode", "raw_inversion")
     )
     baseline_label = "IUSAF"
 
