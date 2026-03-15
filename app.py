@@ -5,19 +5,42 @@ import plotly.graph_objects as go
 import plotly.express as px
 import numpy as np
 from logic.data_loader import load_data, get_base_data
-from logic.calculator import calculate_allocations, aggregate_by_region, aggregate_eu, aggregate_special_groups, aggregate_by_income, add_total_row
+from logic.calculator import calculate_allocations, aggregate_by_region, aggregate_eu, aggregate_special_groups, aggregate_by_income, add_total_row, get_stewardship_blend_feedback, get_outcome_warning_feedback
 
-st.set_page_config(page_title="Cali Fund Allocation Model", layout="wide")
+st.set_page_config(page_title="Cali Fund Allocation Model (Inverted UN Scale Option)", layout="wide")
 
-st.title("Cali Fund Allocation Model (UN Scale)")
+st.markdown(
+    """
+    <style>
+    div[data-baseweb="tab-list"] button [data-testid="stMarkdownContainer"] p {
+        font-weight: 700;
+    }
+    section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] {
+        gap: 0.4rem;
+    }
+    section[data-testid="stSidebar"] .stMarkdown,
+    section[data-testid="stSidebar"] [data-testid="stCaptionContainer"],
+    section[data-testid="stSidebar"] [data-testid="stSlider"],
+    section[data-testid="stSidebar"] [data-testid="stSelectbox"],
+    section[data-testid="stSidebar"] [data-testid="stCheckbox"],
+    section[data-testid="stSidebar"] [data-testid="stToggle"] {
+        margin-bottom: 0.35rem;
+    }
+    section[data-testid="stSidebar"] [data-testid="stSidebarDivider"] {
+        margin: 0.4rem 0;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+st.title("Cali Fund Allocation Model (Inverted UN Scale Option)")
 st.markdown("""
-This interactive application uses the UN Scale of Assessments (2025–2027) to model indicative shares of the Cali Fund. The model inverts assessed UN budget shares so that countries with smaller assessed shares receive proportionally larger indicative allocations. 
+This interactive application uses the UN Scale of Assessments (2025–2027) to model indicative shares of the Cali Fund. The model inverts assessed UN budget shares and groups countries into bands so that countries with smaller assessed shares receive proportionally larger indicative allocations. Adjustments are then made to recognise different biodiversity stewardship responsibilities in the form of a flexible Terrestrial Stewardship Allocation Component (TSAC) and SIDS Ocean Stewardship Allocation Component (SOSAC). The aim is to assist Parties with identifying the right balance points.
 
-All figures are illustrative modelling outputs for exploratory purposes. They do not represent entitlements or predetermined disbursements.
-The IPLC component reflects the share of resources expected to support indigenous peoples and local communities consistent with existing COP decisions. 
-Governance arrangements are determined separately. The model has no formal status.
+The IPLC component is presented as integral to the formula and is consistent with Decision 16/2. Parties may wish to note that **in practice the amount allocated to IPLCs by the formula and appropriate pathways to disbursement to IPLCS are separate considerations**. Different pathways to disbursement may be appropriate at the national, subnational or UN regional/sub-regional level and may be informed by a combination of existing experience, guiding principles and the programme of work of the Subsidiary Body on Article 8J and Other Provisions of the Convention as adopted in Decision 16/4.
 
-A detailed description of the UN Scale of Assessment for 2025-2027 is available [here](https://www.un-ilibrary.org/content/books/9789211069945c004/read) and the latest table is [here](https://digitallibrary.un.org/record/4071844?ln=en&utm_source=chatgpt.com&v=pdf#files).
+All figures are illustrative modelling outputs for exploratory purposes. They do not represent entitlements or predetermined disbursements. The model has no formal status.
 """)
 
 # Initialize connection and data
@@ -46,11 +69,15 @@ if "enable_ceiling" not in st.session_state:
 if "ceiling_pct" not in st.session_state:
     st.session_state["ceiling_pct"] = 1.0
 if "tsac_beta" not in st.session_state:
-    st.session_state["tsac_beta"] = 0.0
+    st.session_state["tsac_beta"] = 0.05
 if "sosac_gamma" not in st.session_state:
-    st.session_state["sosac_gamma"] = 0.0
+    st.session_state["sosac_gamma"] = 0.03
+if "tsac_beta_pct" not in st.session_state:
+    st.session_state["tsac_beta_pct"] = int(round(st.session_state["tsac_beta"] * 100))
+if "sosac_gamma_pct" not in st.session_state:
+    st.session_state["sosac_gamma_pct"] = int(round(st.session_state["sosac_gamma"] * 100))
 if "equality_mode" not in st.session_state:
-    st.session_state["equality_mode"] = True
+    st.session_state["equality_mode"] = False
 if "show_advanced" not in st.session_state:
     st.session_state["show_advanced"] = False
 if "sort_option" not in st.session_state:
@@ -69,13 +96,15 @@ if st.sidebar.button("Reset to default"):
     st.session_state["iplc_share"] = 50
     st.session_state["show_raw"] = False
     st.session_state["use_thousands"] = False
-    st.session_state["exclude_hi"] = True
+    st.session_state["exclude_hi"] = False
     st.session_state["enable_floor"] = False
     st.session_state["floor_pct"] = 0.05
     st.session_state["enable_ceiling"] = False
     st.session_state["ceiling_pct"] = 1.0
     st.session_state["tsac_beta"] = 0.0
     st.session_state["sosac_gamma"] = 0.0
+    st.session_state["tsac_beta_pct"] = 0
+    st.session_state["sosac_gamma_pct"] = 0
     st.session_state["equality_mode"] = True
     st.session_state["show_advanced"] = False
     st.session_state["sort_option"] = "Allocation (highest first)"
@@ -110,31 +139,42 @@ with st.sidebar.expander("Negotiation Presets", expanded=True):
     if col_p1.button("Equality", help="Even split between all eligible countries (Excludes HI except SIDS)"):
         st.session_state["tsac_beta"] = 0.0
         st.session_state["sosac_gamma"] = 0.0
+        st.session_state["tsac_beta_pct"] = 0
+        st.session_state["sosac_gamma_pct"] = 0
         st.session_state["equality_mode"] = True
         st.session_state["exclude_hi"] = True
         st.rerun()
     if col_p2.button("Inverted UN Scale", help="TSAC=0, SOSAC=0 (Pure IUSAF)"):
         st.session_state["tsac_beta"] = 0.0
         st.session_state["sosac_gamma"] = 0.0
+        st.session_state["tsac_beta_pct"] = 0
+        st.session_state["sosac_gamma_pct"] = 0
+        st.session_state["exclude_hi"] = True
         st.session_state["equality_mode"] = False
         st.rerun()
     
     # Row 2
-    if col_p1.button("Terrestrial Stewardship", help="TSAC=0.25, SOSAC=0.05"):
-        st.session_state["tsac_beta"] = 0.25
+    if col_p1.button("Terrestrial Stewardship", help="TSAC=0.15, SOSAC=0.05"):
+        st.session_state["tsac_beta"] = 0.15
         st.session_state["sosac_gamma"] = 0.05
+        st.session_state["tsac_beta_pct"] = 15
+        st.session_state["sosac_gamma_pct"] = 5
         st.session_state["equality_mode"] = False
         st.rerun()
-    if col_p2.button("Oceans Stewardship", help="TSAC=0.10, SOSAC=0.15"):
-        st.session_state["tsac_beta"] = 0.10
-        st.session_state["sosac_gamma"] = 0.15
+    if col_p2.button("Oceans Stewardship", help="TSAC=0.05, SOSAC=0.10"):
+        st.session_state["tsac_beta"] = 0.05
+        st.session_state["sosac_gamma"] = 0.10
+        st.session_state["tsac_beta_pct"] = 5
+        st.session_state["sosac_gamma_pct"] = 10
         st.session_state["equality_mode"] = False
         st.rerun()
         
     # Row 3 (Full width)
-    if st.button("Balanced", help="TSAC=0.15, SOSAC=0.10 (Default)", use_container_width=True):
-        st.session_state["tsac_beta"] = 0.15
-        st.session_state["sosac_gamma"] = 0.10
+    if st.button("Balanced", help="TSAC=0.05, SOSAC=0.03 (Default)", use_container_width=True):
+        st.session_state["tsac_beta"] = 0.05
+        st.session_state["sosac_gamma"] = 0.03
+        st.session_state["tsac_beta_pct"] = 5
+        st.session_state["sosac_gamma_pct"] = 3
         st.session_state["equality_mode"] = False
         st.rerun()
 
@@ -150,23 +190,43 @@ exclude_hi = st.sidebar.checkbox(
 st.sidebar.divider()
 st.sidebar.header("Stewardship Allocation Weights")
 
-tsac_beta = st.sidebar.slider(
-    "Land Area Weight (TSAC)",
-    min_value=0.0,
-    max_value=0.30,
-    step=0.01,
-    key="tsac_beta",
-    help="Weight for the Terrestrial Stewardship Allocation Component (TSAC)."
+tsac_beta_pct = st.sidebar.slider(
+    "Terrestrial Stewardship Allocation Component (TSAC)",
+    min_value=0,
+    max_value=15,
+    step=1,
+    format="%d%%",
+    key="tsac_beta_pct",
+    help="TSAC recognises stewardship responsibilities associated with larger land areas. It should normally act as a modest uplift rather than a dominant allocation driver."
 )
 
-sosac_gamma = st.sidebar.slider(
-    "SIDS Oceans Weight (SOSAC)",
-    min_value=0.0,
-    max_value=0.20,
-    step=0.01,
-    key="sosac_gamma",
-    help="Weight for the SIDS Ocean Stewardship Allocation Component (SOSAC)."
+sosac_gamma_pct = st.sidebar.slider(
+    "SIDS Ocean Stewardship Allocation Component (SOSAC)",
+    min_value=0,
+    max_value=10,
+    step=1,
+    format="%d%%",
+    key="sosac_gamma_pct",
+    help="SOSAC recognises the special circumstances of SIDS. It should normally act as a modest uplift rather than a dominant allocation driver."
 )
+
+tsac_beta = tsac_beta_pct / 100.0
+sosac_gamma = sosac_gamma_pct / 100.0
+st.session_state["tsac_beta"] = tsac_beta
+st.session_state["sosac_gamma"] = sosac_gamma
+
+if tsac_beta + sosac_gamma >= 1.0:
+    st.sidebar.error("Invalid blend: TSAC + SOSAC must remain below 1.0 so the IUSAF base can be computed.")
+    st.stop()
+
+stewardship_feedback = get_stewardship_blend_feedback(tsac_beta, sosac_gamma)
+st.sidebar.caption(stewardship_feedback["status_text"])
+if stewardship_feedback["warning_level"] == "none":
+    st.sidebar.caption(stewardship_feedback["dominance_text"])
+elif stewardship_feedback["warning_level"] == "mild":
+    st.sidebar.warning(stewardship_feedback["warning_text"])
+else:
+    st.sidebar.error(stewardship_feedback["warning_text"])
 
 # Dynamic Interpretation Boxes
 tsac_amt_m = (fund_size_usd * tsac_beta) / 1_000_000
@@ -203,9 +263,6 @@ else:
         )
     else:
         st.sidebar.info("**SOSAC Interpretation**\n\nSOSAC is set to 0%.")
-
-if iusaf_weight < 0.60:
-    st.sidebar.warning(f"Combined secondary weights ({tsac_beta + sosac_gamma:.2f}) exceed 0.40. IUSAF base weight is low: {iusaf_weight:.2f}")
 
 st.sidebar.divider()
 st.sidebar.header("Constraint Controls")
@@ -314,6 +371,10 @@ results_df = calculate_allocations(
     equality_mode=st.session_state.get("equality_mode", False),
     un_scale_mode=st.session_state.get("un_scale_mode", "raw_inversion")
 )
+
+outcome_warning = get_outcome_warning_feedback(results_df, fund_size_usd)
+if outcome_warning:
+    st.sidebar.warning(outcome_warning["message"])
 
 if st.session_state["un_scale_mode"] == "band_inversion":
     # Count countries per band for eligible countries
@@ -1320,17 +1381,18 @@ with main_tabs[current_tab_idx]:
     above_raw = (m_comp['raw_amt'] > equal_share_m).sum()
     above_band = (m_comp['band_amt'] > equal_share_m).sum()
     
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Above Equal Share (Raw)", int(above_raw))
-    c2.metric("Above Equal Share (Band)", int(above_band))
-    c3.metric("Equal Share Reference", f"${equal_share_m:.2f}m")
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Parties (n)", int(n_eligible))
+    c2.metric("Above Equal Share (Raw)", int(above_raw))
+    c3.metric("Above Equal Share (Band)", int(above_band))
+    c4.metric("Equal Share Reference", f"${equal_share_m:.2f}m")
     
     st.divider()
     
     # Charts
     chart_c1, chart_c2 = st.columns(2)
     with chart_c1:
-        st.write("**Countries Above/Below Equal Share**")
+        st.write(f"**{n_eligible} Countries Above/Below Equal Share**")
         status_data = pd.DataFrame({
             'Method': ['Raw Inversion', 'Raw Inversion', 'Band-based', 'Band-based'],
             'Status': ['Above', 'Below', 'Above', 'Below'],
@@ -1370,6 +1432,10 @@ st.divider()
 st.markdown("""
 **Notes**  
 The allocations shown are indicative and are generated using an inverted [UN Scale of Assessments](https://digitallibrary.un.org/record/4071844?ln=en&utm_source=chatgpt.com&v=pdf#files) for the years 2025-2027 to support discussion. Definitions of UN regions, Least developed countries (LDC) and Small Island Developing States (SIDS) are from the [UNSD M49](https://unstats.un.org/unsd/methodology/m49/) standard. [World Bank Income Classification groups](https://datahelpdesk.worldbank.org/knowledgebase/articles/906519-world-bank-country-and-lending-groups) are shown to assist with interpretation and to enable the ability to toggle high income (developed) countries on or off in calculations.
+
+The Terrestrial Stewardship Allocation Component (TSAC) is calculated as the country share of the total Land Area in the FAOSTAT Land Area (Square km) table  for 1961-2023 on 2023 values available from the [World Bank Indicators Databank](https://data.worldbank.org/indicator/AG.LND.TOTL.K2).
+
+The SIDS Ocean Stewardship Allocation Component (SOSAC) is calculated as an equal-share pool across all eligible SIDS Parties using the UNSD M49 SIDS classification. In practice, each eligible SIDS receives an equal share (`1 / number of eligible SIDS`) weighted by the SOSAC slider value. If no eligible SIDS are present, the SOSAC weight is reallocated to the IUSAF base.
 
 ---
 Prepared by Paul Oldham [TierraViva AI](https://www.tierraviva.ai/). Developed with Droid by [Factory AI](https://factory.ai/). Source code available on [Github](https://github.com/tierravivaai/cali-fund-allocation-model)

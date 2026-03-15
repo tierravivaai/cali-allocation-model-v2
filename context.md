@@ -15,13 +15,19 @@
 
 ### User Interface
 - Added TSAC and SOSAC sliders to the Streamlit sidebar in `app.py`.
+- Updated slider defaults and ranges to keep stewardship adjustments secondary to IUSAF:
+  - Default: TSAC `0.05`, SOSAC `0.03`
+  - Range: TSAC `0.00-0.15`, SOSAC `0.00-0.10`
 - Implemented dynamic interpretation boxes explaining the allocation impact of beta and gamma.
+- Added live stewardship status line and threshold-based warnings (`>0.15` mild, `>0.20` strong).
+- Added outcome warnings based on equality-reference diagnostics (share below equality and median vs equality reference).
+- Added hard-stop guard for invalid blends where `TSAC + SOSAC >= 1.0`.
 - Created a "Negotiation Dashboard" tab with Plotly visualizations:
   - Increases/Decreases metrics and bar charts.
   - Group impact analysis.
   - Country-level waterfall charts.
   - TSAC vs SOSAC sensitivity heatmap.
-- Added negotiation presets (Equality, Inverted UN Scale, Terrestrial Stewardship, Oceans Stewardship, Balanced).
+- Updated negotiation preset values to align with the revised stewardship caps and defaults.
 - Fixed tab NameErrors by using dynamic indexing.
 
 ### Testing

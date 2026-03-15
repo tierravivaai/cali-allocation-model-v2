@@ -320,3 +320,91 @@ def add_total_row(df, label_col, label="Total"):
             row_dict[col] = ""
             
     return pd.concat([df, pd.DataFrame([row_dict])], ignore_index=True)
+
+def get_stewardship_blend_feedback(tsac_beta: float, sosac_gamma: float) -> dict:
+    stewardship_total = float(tsac_beta) + float(sosac_gamma)
+
+    if stewardship_total == 0.0:
+        return {
+            "stewardship_total": stewardship_total,
+            "status_text": "Current blend: no stewardship recognition.",
+            "warning_level": "none",
+            "warning_text": None,
+            "dominance_text": "Current blend: IUSAF remains the dominant allocation base."
+        }
+
+    if stewardship_total <= 0.15:
+        return {
+            "stewardship_total": stewardship_total,
+            "status_text": "Current blend: modest stewardship recognition.",
+            "warning_level": "none",
+            "warning_text": None,
+            "dominance_text": "Current blend: IUSAF remains the dominant allocation base."
+        }
+
+    if stewardship_total <= 0.20:
+        return {
+            "stewardship_total": stewardship_total,
+            "status_text": "Current blend: strong stewardship recognition.",
+            "warning_level": "mild",
+            "warning_text": "Stewardship adjustments are becoming strong. TSAC and SOSAC may now be materially reshaping outcomes rather than simply recognising stewardship and special circumstances.",
+            "dominance_text": None
+        }
+
+    return {
+        "stewardship_total": stewardship_total,
+        "status_text": "Current blend: stewardship adjustments may be overriding the IUSAF base.",
+        "warning_level": "strong",
+        "warning_text": "Warning: TSAC and SOSAC now account for a large enough share of the formula that stewardship adjustments may be overriding the IUSAF base. This may reduce fairness, transparency and intelligibility between Parties.",
+        "dominance_text": None
+    }
+
+def get_outcome_warning_feedback(results_df: pd.DataFrame, fund_size_usd: float):
+    eligible_df = results_df[results_df["eligible"]].copy()
+    n_eligible = len(eligible_df)
+    if n_eligible == 0:
+        return None
+
+    equal_share_m = (float(fund_size_usd) / n_eligible) / 1_000_000.0
+    if equal_share_m <= 0:
+        return None
+
+    below_equality_share = (eligible_df["total_allocation"] < equal_share_m).mean()
+    median_pct_of_equality = (eligible_df["total_allocation"].median() / equal_share_m) * 100.0
+
+    cond_a = below_equality_share > 0.60
+    cond_b = median_pct_of_equality < 90.0
+
+    if not cond_a and not cond_b:
+        return None
+
+    if cond_a and cond_b:
+        message = (
+            "Outcome warning: more than 60% of eligible countries are below the equality reference, "
+            "and the median eligible country is receiving less than 90% of the equality reference. "
+            "This suggests the current blend may be politically difficult to defend as broadly fair."
+        )
+    elif cond_a:
+        message = (
+            "Outcome warning: more than 60% of eligible countries are below the equality reference. "
+            "This suggests the current blend may be politically difficult to defend as broadly fair."
+        )
+    else:
+        message = (
+            "Outcome warning: the median eligible country is receiving less than 90% of the equality reference. "
+            "This suggests stewardship adjustments may be pulling the model away from a broadly acceptable sovereign baseline."
+        )
+
+    top_10_share_pct = (
+        eligible_df.nlargest(min(10, n_eligible), "total_allocation")["total_allocation"].sum()
+        / eligible_df["total_allocation"].sum()
+        * 100.0
+    )
+
+    return {
+        "message": message,
+        "equal_share_m": equal_share_m,
+        "below_equality_share": float(below_equality_share),
+        "median_pct_of_equality": float(median_pct_of_equality),
+        "top_10_share_pct": float(top_10_share_pct),
+    }

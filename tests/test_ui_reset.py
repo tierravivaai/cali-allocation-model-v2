@@ -29,6 +29,25 @@ def test_reset_button_functionality():
     # 3. Verify values are back to defaults
     assert at.slider(key="fund_size_bn").value == 1.0
     assert at.toggle(key="use_thousands").value is False
-    assert at.checkbox(key="exclude_hi").value is True
+    assert at.checkbox(key="exclude_hi").value is False
     assert at.slider(key="iplc_share").value == 50
+    assert at.slider(key="tsac_beta_pct").value == 0
+    assert at.slider(key="sosac_gamma_pct").value == 0
+    assert at.session_state["equality_mode"] is True
     assert at.selectbox(key="sort_option").value == "Allocation (highest first)"
+
+
+def test_inverted_un_scale_turns_on_exclude_high_income():
+    at = AppTest.from_file("app.py", default_timeout=30)
+    at.run()
+
+    at.checkbox(key="exclude_hi").set_value(False).run()
+    assert at.checkbox(key="exclude_hi").value is False
+
+    inverted_button = [b for b in at.button if b.label == "Inverted UN Scale"][0]
+    inverted_button.click().run()
+
+    assert at.checkbox(key="exclude_hi").value is True
+    assert at.session_state["equality_mode"] is False
+    assert at.slider(key="tsac_beta_pct").value == 0
+    assert at.slider(key="sosac_gamma_pct").value == 0
