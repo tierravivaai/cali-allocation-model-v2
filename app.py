@@ -103,18 +103,6 @@ un_scale_mode = st.sidebar.selectbox(
 )
 st.session_state["un_scale_mode"] = "raw_inversion" if un_scale_mode == "Raw inversion" else "band_inversion"
 
-if st.session_state["un_scale_mode"] == "band_inversion":
-    st.sidebar.info(
-        "**Band-based inversion** groups countries into 5 broad UN assessment bands and applies a transparent graduated uplift, "
-        "instead of mechanically inverting every small difference in the UN scale. \n\n"
-        "**The 5 bands are:**\n"
-        "- **Band 1**: <= 0.001% UN Share\n"
-        "- **Band 2**: 0.001% - 0.01%\n"
-        "- **Band 3**: 0.01% - 0.1%\n"
-        "- **Band 4**: 0.1% - 1.0%\n"
-        "- **Band 5**: > 1.0% UN Share"
-    )
-
 # Negotiation Presets
 with st.sidebar.expander("Negotiation Presets", expanded=True):
     col_p1, col_p2 = st.columns(2)
@@ -326,6 +314,21 @@ results_df = calculate_allocations(
     equality_mode=st.session_state.get("equality_mode", False),
     un_scale_mode=st.session_state.get("un_scale_mode", "raw_inversion")
 )
+
+if st.session_state["un_scale_mode"] == "band_inversion":
+    # Count countries per band for eligible countries
+    b_counts = results_df[results_df['eligible']].groupby('un_band')['party'].count().to_dict()
+    
+    st.sidebar.info(
+        "**Band-based inversion** groups countries into 5 broad UN assessment bands and applies a transparent graduated uplift, "
+        "instead of mechanically inverting every small difference in the UN scale. \n\n"
+        "**The 5 bands are:**\n"
+        f"- **Band 1**: <= 0.001% UN Share ({b_counts.get('Band 1: <= 0.001%', 0)})\n"
+        f"- **Band 2**: 0.001% - 0.01% ({b_counts.get('Band 2: 0.001% - 0.01%', 0)})\n"
+        f"- **Band 3**: 0.01% - 0.1% ({b_counts.get('Band 3: 0.01% - 0.1%', 0)})\n"
+        f"- **Band 4**: 0.1% - 1.0% ({b_counts.get('Band 4: 0.1% - 1.0%', 0)})\n"
+        f"- **Band 5**: > 1.0% UN Share ({b_counts.get('Band 5: > 1.0%', 0)})"
+    )
 
 # Baseline Logic
 # 1. If we are in Inverted UN Scale (beta=0, gamma=0, equality=False), 
