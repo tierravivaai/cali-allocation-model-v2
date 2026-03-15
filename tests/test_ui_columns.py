@@ -48,3 +48,24 @@ def test_column_visibility_by_tab(mock_con):
     # 5. Test "Share by Income Group" columns logic
     display_cols_income = ['WB Income Group', 'Countries (number)', 'total_allocation', 'state_component', 'iplc_component']
     assert "Countries (number)" in display_cols_income
+
+def test_inversion_comparison_headlines(mock_con):
+    base_df = get_base_data(mock_con)
+    fund_size_usd = 1_000_000_000
+    iplc_share = 50
+    
+    # Scenario A: Exclude High Income
+    results_hi_excluded = calculate_allocations(
+        base_df, fund_size_usd, iplc_share, False, exclude_high_income=True
+    )
+    n_eligible_hi_excluded = results_hi_excluded['eligible'].sum()
+    
+    # Scenario B: Include High Income
+    results_hi_included = calculate_allocations(
+        base_df, fund_size_usd, iplc_share, False, exclude_high_income=False
+    )
+    n_eligible_hi_included = results_hi_included['eligible'].sum()
+    
+    assert n_eligible_hi_excluded < n_eligible_hi_included
+    assert n_eligible_hi_excluded == 142 # 196 - (HIC-SIDS)
+    assert n_eligible_hi_included == 196
