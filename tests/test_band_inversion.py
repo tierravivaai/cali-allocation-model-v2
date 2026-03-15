@@ -39,7 +39,26 @@ def test_band_inversion_values():
     assert china['un_share'] > 1.0
     assert china['un_band_weight'] == 0.75
 
+def test_band_inversion_hi_exclusion():
+    con = duckdb.connect(database=':memory:')
+    load_data(con)
+    df = get_base_data(con)
+    
+    # Run with band inversion and HI exclusion
+    res = calculate_allocations(df, 1_000_000_000, 50, exclude_high_income=True, un_scale_mode="band_inversion")
+    
+    # Switzerland is High Income, non-SIDS, Europe
+    switz = res[res['party'] == 'Switzerland'].iloc[0]
+    assert switz['eligible'] == False
+    assert switz['total_allocation'] == 0
+    
+    # Belarus is Upper Middle Income, Europe
+    belarus = res[res['party'] == 'Belarus'].iloc[0]
+    assert belarus['eligible'] == True
+    assert belarus['total_allocation'] > 0
+
 if __name__ == "__main__":
     test_band_inversion_completeness()
     test_band_inversion_values()
+    test_band_inversion_hi_exclusion()
     print("Band inversion tests passed!")

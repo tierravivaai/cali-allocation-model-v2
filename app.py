@@ -1272,11 +1272,14 @@ with main_tabs[current_tab_idx]:
     equal_share_m = (fund_size_usd / n_eligible) / 1_000_000 if n_eligible > 0 else 0
     
     # Merge for comparison
-    m_comp = comp_raw[['party', 'un_share', 'total_allocation']].rename(columns={'total_allocation': 'raw_amt'})
+    m_comp = comp_raw[['party', 'un_share', 'total_allocation', 'eligible']].rename(columns={'total_allocation': 'raw_amt'})
     m_comp['band_amt'] = comp_band['total_allocation']
     m_comp['un_band'] = comp_band['un_band']
     m_comp['diff_amt'] = m_comp['band_amt'] - m_comp['raw_amt']
     m_comp['equal_share'] = equal_share_m
+    
+    # Filter for eligible only
+    m_comp = m_comp[m_comp['eligible']].copy()
     
     # Stats
     above_raw = (m_comp['raw_amt'] > equal_share_m).sum()
@@ -1296,7 +1299,7 @@ with main_tabs[current_tab_idx]:
         status_data = pd.DataFrame({
             'Method': ['Raw Inversion', 'Raw Inversion', 'Band-based', 'Band-based'],
             'Status': ['Above', 'Below', 'Above', 'Below'],
-            'Count': [above_raw, n_eligible - above_raw, above_band, n_eligible - above_band]
+            'Count': [above_raw, len(m_comp) - above_raw, above_band, len(m_comp) - above_band]
         })
         fig_status = px.bar(status_data, x='Method', y='Count', color='Status', barmode='group')
         fig_status.update_layout(height=400)
