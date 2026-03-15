@@ -105,8 +105,14 @@ st.session_state["un_scale_mode"] = "raw_inversion" if un_scale_mode == "Raw inv
 
 if st.session_state["un_scale_mode"] == "band_inversion":
     st.sidebar.info(
-        "**Band-based inversion** groups countries into broad UN assessment bands and applies a transparent graduated uplift, "
-        "instead of mechanically inverting every small difference in the UN scale."
+        "**Band-based inversion** groups countries into 5 broad UN assessment bands and applies a transparent graduated uplift, "
+        "instead of mechanically inverting every small difference in the UN scale. \n\n"
+        "**The 5 bands are:**\n"
+        "- **Band 1**: <= 0.001% UN Share\n"
+        "- **Band 2**: 0.001% - 0.01%\n"
+        "- **Band 3**: 0.01% - 0.1%\n"
+        "- **Band 4**: 0.1% - 1.0%\n"
+        "- **Band 5**: > 1.0% UN Share"
     )
 
 # Negotiation Presets
@@ -425,6 +431,13 @@ def get_column_config(use_thousands, include_country_count=False):
             "component_tsac_amt": st.column_config.NumberColumn("TSAC (USD Millions)", format="$%.2f"),
             "component_sosac_amt": st.column_config.NumberColumn("SOSAC (USD Millions)", format="$%.2f"),
         })
+    
+    # Common labels for Banding (if present in display_cols)
+    config.update({
+        "un_band": "UN Band",
+        "un_band_weight": st.column_config.NumberColumn("Band Weight", format="%.2f")
+    })
+    
     return config
 
 # Main Tabs
@@ -854,7 +867,9 @@ with main_tabs[current_tab_idx]:
         ).reset_index(drop=True)
         hide_index = True
 
-    display_cols = ["party", "total_allocation", "state_component", "iplc_component", "WB Income Group", "UN LDC", "EU"]
+    display_cols_reg = ["party", "total_allocation", "state_component", "iplc_component", "WB Income Group", "UN LDC", "EU"]
+    if st.session_state["un_scale_mode"] == "band_inversion":
+        display_cols_reg.extend(['un_band', 'un_band_weight'])
 
     if use_thousands:
         for col in ["total_allocation", "state_component", "iplc_component"]:
@@ -864,7 +879,7 @@ with main_tabs[current_tab_idx]:
     config.update(get_column_config(use_thousands))
 
     st.dataframe(
-        region_countries[display_cols],
+        region_countries[display_cols_reg],
         column_config=config,
         hide_index=hide_index,
         width="stretch",
@@ -922,7 +937,9 @@ with main_tabs[current_tab_idx]:
         ).reset_index(drop=True)
         hide_index = True
 
-    display_cols = ["party", "total_allocation", "state_component", "iplc_component", "WB Income Group", "UN LDC", "EU"]
+    display_cols_sub_detail = ["party", "total_allocation", "state_component", "iplc_component", "WB Income Group", "UN LDC", "EU"]
+    if st.session_state["un_scale_mode"] == "band_inversion":
+        display_cols_sub_detail.extend(['un_band', 'un_band_weight'])
 
     if use_thousands:
         for col in ["total_allocation", "state_component", "iplc_component"]:
@@ -932,7 +949,7 @@ with main_tabs[current_tab_idx]:
     config.update(get_column_config(use_thousands))
 
     st.dataframe(
-        sub_region_countries[display_cols],
+        sub_region_countries[display_cols_sub_detail],
         column_config=config,
         hide_index=hide_index,
         width="stretch",
@@ -995,7 +1012,9 @@ with main_tabs[current_tab_idx]:
             ).reset_index(drop=True)
             hide_index = True
 
-        display_cols = ["party", "total_allocation", "state_component", "iplc_component", "WB Income Group", "UN LDC", "EU"]
+        display_cols_int_detail = ["party", "total_allocation", "state_component", "iplc_component", "WB Income Group", "UN LDC", "EU"]
+        if st.session_state["un_scale_mode"] == "band_inversion":
+            display_cols_int_detail.extend(['un_band', 'un_band_weight'])
 
         if use_thousands:
             for col in ["total_allocation", "state_component", "iplc_component"]:
@@ -1005,7 +1024,7 @@ with main_tabs[current_tab_idx]:
         config.update(get_column_config(use_thousands))
 
         st.dataframe(
-            int_region_countries[display_cols],
+            int_region_countries[display_cols_int_detail],
             column_config=config,
             hide_index=hide_index,
             width="stretch",
@@ -1162,6 +1181,9 @@ with main_tabs[current_tab_idx]:
     li_count = len(li_df)
     
     display_cols_li = ['party', 'total_allocation', 'state_component', 'iplc_component', 'WB Income Group', 'UN LDC']
+    if st.session_state["un_scale_mode"] == "band_inversion":
+        display_cols_li.extend(['un_band', 'un_band_weight'])
+        
     li_table = display_li_df[display_cols_li].sort_values('party')
     # Add country count for every row (1) so it sums correctly in Total row
     li_table.insert(1, "Countries (number)", 1)
@@ -1201,7 +1223,11 @@ with main_tabs[current_tab_idx]:
     mi_total = mi_df[['total_allocation', 'state_component', 'iplc_component']].sum()
     mi_count = len(mi_df)
     
-    mi_table = display_mi_df[['party', 'total_allocation', 'state_component', 'iplc_component', 'UN LDC', 'WB Income Group']].sort_values('party')
+    display_cols_mi = ['party', 'total_allocation', 'state_component', 'iplc_component', 'UN LDC', 'WB Income Group']
+    if st.session_state["un_scale_mode"] == "band_inversion":
+        display_cols_mi.extend(['un_band', 'un_band_weight'])
+    
+    mi_table = display_mi_df[display_cols_mi].sort_values('party')
     mi_table.insert(1, "Countries (number)", 1)
     mi_table = add_total_row(mi_table, "party")
 
@@ -1236,7 +1262,11 @@ with main_tabs[current_tab_idx]:
     hi_total = hi_df[['total_allocation', 'state_component', 'iplc_component']].sum()
     hi_count = len(hi_df)
     
-    hi_table = display_hi_df[['party', 'total_allocation', 'state_component', 'iplc_component', 'EU']].sort_values('party')
+    display_cols_hi = ['party', 'total_allocation', 'state_component', 'iplc_component', 'EU']
+    if st.session_state["un_scale_mode"] == "band_inversion":
+        display_cols_hi.extend(['un_band', 'un_band_weight'])
+
+    hi_table = display_hi_df[display_cols_hi].sort_values('party')
     hi_table.insert(1, "Countries (number)", 1)
     hi_table = add_total_row(hi_table, "party")
 
