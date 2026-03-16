@@ -5,8 +5,14 @@ from pathlib import Path
 def test_tsac_sosac_defaults_and_ranges_in_app_config():
     app_text = Path("app.py").read_text(encoding="utf-8")
 
-    assert 'st.session_state["tsac_beta"] = 0.05' in app_text
-    assert 'st.session_state["sosac_gamma"] = 0.03' in app_text
+    assert 'if "tsac_beta" not in st.session_state:' in app_text
+    assert 'st.session_state["tsac_beta"] = 0.0' in app_text
+    assert 'if "sosac_gamma" not in st.session_state:' in app_text
+    assert 'st.session_state["sosac_gamma"] = 0.0' in app_text
+    assert 'if "equality_mode" not in st.session_state:' in app_text
+    assert 'st.session_state["equality_mode"] = True' in app_text
+    assert 'if "exclude_hi" not in st.session_state:' in app_text
+    assert 'st.session_state["exclude_hi"] = False' in app_text
 
     tsac_slider_pattern = re.compile(
         r'tsac_beta_pct\s*=\s*st\.sidebar\.slider\(\s*'

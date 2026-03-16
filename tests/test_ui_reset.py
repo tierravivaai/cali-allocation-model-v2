@@ -1,6 +1,16 @@
 import pytest
 from streamlit.testing.v1 import AppTest
 
+
+def test_initial_load_defaults_to_true_equality():
+    at = AppTest.from_file("app.py", default_timeout=30)
+    at.run()
+
+    assert at.checkbox(key="exclude_hi").value is False
+    assert at.slider(key="tsac_beta_pct").value == 0
+    assert at.slider(key="sosac_gamma_pct").value == 0
+    assert at.session_state["equality_mode"] is True
+
 def test_reset_button_functionality():
     """
     Test that the 'Reset to default' button correctly resets the app state.

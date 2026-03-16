@@ -59,7 +59,7 @@ if "show_raw" not in st.session_state:
 if "use_thousands" not in st.session_state:
     st.session_state["use_thousands"] = False
 if "exclude_hi" not in st.session_state:
-    st.session_state["exclude_hi"] = True
+    st.session_state["exclude_hi"] = False
 if "enable_floor" not in st.session_state:
     st.session_state["enable_floor"] = False
 if "floor_pct" not in st.session_state:
@@ -69,15 +69,15 @@ if "enable_ceiling" not in st.session_state:
 if "ceiling_pct" not in st.session_state:
     st.session_state["ceiling_pct"] = 1.0
 if "tsac_beta" not in st.session_state:
-    st.session_state["tsac_beta"] = 0.05
+    st.session_state["tsac_beta"] = 0.0
 if "sosac_gamma" not in st.session_state:
-    st.session_state["sosac_gamma"] = 0.03
+    st.session_state["sosac_gamma"] = 0.0
 if "tsac_beta_pct" not in st.session_state:
     st.session_state["tsac_beta_pct"] = int(round(st.session_state["tsac_beta"] * 100))
 if "sosac_gamma_pct" not in st.session_state:
     st.session_state["sosac_gamma_pct"] = int(round(st.session_state["sosac_gamma"] * 100))
 if "equality_mode" not in st.session_state:
-    st.session_state["equality_mode"] = False
+    st.session_state["equality_mode"] = True
 if "show_advanced" not in st.session_state:
     st.session_state["show_advanced"] = False
 if "sort_option" not in st.session_state:
