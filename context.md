@@ -16,7 +16,8 @@
 ### User Interface
 - Added TSAC and SOSAC sliders to the Streamlit sidebar in `app.py`.
 - Updated slider defaults and ranges to keep stewardship adjustments secondary to IUSAF:
-  - Default: TSAC `0.05`, SOSAC `0.03`
+  - Initial load default: TSAC `0.00`, SOSAC `0.00` (true equality)
+  - Balanced preset: TSAC `0.05`, SOSAC `0.03`
   - Range: TSAC `0.00-0.15`, SOSAC `0.00-0.10`
 - Implemented dynamic interpretation boxes explaining the allocation impact of beta and gamma.
 - Added live stewardship status line and threshold-based warnings (`>0.15` mild, `>0.20` strong).
@@ -26,7 +27,7 @@
   - Increases/Decreases metrics and bar charts.
   - Group impact analysis.
   - Country-level waterfall charts.
-  - TSAC vs SOSAC sensitivity heatmap.
+  - Selected-country stewardship scenario comparison chart with equality reference.
 - Updated negotiation preset values to align with the revised stewardship caps and defaults.
 - Fixed tab NameErrors by using dynamic indexing.
 
@@ -35,5 +36,4 @@
 - Verified all 67+ tests pass.
 
 ## Notes for Next Session
-- **Vulnerability and Negotiator Controls**: The current implementation of vulnerability-based adjustments and other negotiator-specific controls requires further review and refinement to ensure they meet policy requirements.
 - **UI/UX Refinement**: Continued feedback on the placement and functionality of the negotiation tools is expected.

@@ -1,4 +1,4 @@
-# Cali Allocation Model (UN Scale)
+# Cali Fund Allocation Model (Inverted UN Scale Option)
 
 This interactive tool illustrates how Cali Fund allocations would be distributed if based on the **latest UN Scale of Assessments (2025-2027)**, inverted to reflect relative need.
 
@@ -11,12 +11,12 @@ This interactive tool illustrates how Cali Fund allocations would be distributed
     - EU Block summary.
     - Share by WB Income Group.
     - Developmental groupings (LDC, SIDS).
-- **High Income Filter**: Ability to toggle High Income countries out of the allocation pool (enabled by default).
+- **High Income Filter**: Ability to toggle High Income countries out of the allocation pool (off by default on initial load for true-equality start).
 - **Transparency**: Toggle "Raw Inversion and Explanation" to see plain language and technical summaries of the methodology.
 - **TSAC & SOSAC Components**: Blended allocation formula incorporating land area (TSAC) and SIDS-specific structural adjustment (SOSAC).
-- **Stewardship Controls**: Default blend is TSAC `0.05` and SOSAC `0.03`, with UI ranges capped at TSAC `0.15` and SOSAC `0.10` so IUSAF remains the dominant base.
+- **Stewardship Controls**: Initial load defaults to true equality (`TSAC=0`, `SOSAC=0`). The Balanced preset uses TSAC `0.05` and SOSAC `0.03`, with UI ranges capped at TSAC `0.15` and SOSAC `0.10` so IUSAF remains the dominant base.
 - **Blend Warnings**: Live status plus threshold warnings when combined stewardship weights become strong (`>0.15`) or potentially overriding (`>0.20`).
-- **Negotiation Dashboard**: Advanced visualizations including increases and decreases analysis, group impact charts, country-level waterfalls, and sensitivity heatmaps to support scenario exploration.
+- **Negotiation Dashboard**: Advanced visualizations including increases and decreases analysis, group impact charts, country-level waterfalls, and a selected-country stewardship scenario comparison chart with an equality reference line.
 
 ## Installation & Setup
 
@@ -34,14 +34,15 @@ This interactive tool illustrates how Cali Fund allocations would be distributed
 The model computes a blended share for each eligible Party based on three components:
 
 1. **IUSAF (Inverted UN Scale of Assessments)**: The primary component. Each Party's UN Scale of Assessment share for 2027 is inverted (1/share), favouring countries with smaller relative economic capacity.
-2. **TSAC (Total Surface Area Component)**: A share proportional to each Party's land surface area (km²), using the latest non-null data from the World Bank.
-3. **SOSAC (SIDS Only Structural Adjustment Component)**: A categorical share distributed equally among all eligible Small Island Developing States (SIDS), reflecting structural vulnerabilities regardless of land size.
+2. **TSAC (Terrestrial Stewardship Allocation Component)**: A share proportional to each Party's land surface area (km²), using the latest non-null data from the World Bank.
+3. **SOSAC (SIDS Ocean Stewardship Allocation Component)**: A categorical share distributed equally among all eligible Small Island Developing States (SIDS), reflecting structural vulnerabilities regardless of land size.
 
 The final share is determined by blending these components using user-adjustable weights ($\beta$ for TSAC and $\gamma$ for SOSAC):
 > **Final Share = (1 - $\beta$ - $\gamma$) * IUSAF + $\beta$ * TSAC + $\gamma$ * SOSAC**
 
 ### Stewardship Slider Design
-- **Default values**: TSAC `0.05`, SOSAC `0.03`.
+- **Initial app defaults**: TSAC `0.00`, SOSAC `0.00` (true equality start).
+- **Balanced preset values**: TSAC `0.05`, SOSAC `0.03`.
 - **Allowed range**: TSAC `0.00` to `0.15`; SOSAC `0.00` to `0.10`; step `0.01`.
 - **Design intent**: TSAC and SOSAC recognise stewardship and special circumstances, while IUSAF remains the dominant sovereign-capacity base.
 - **UI safeguards**:
