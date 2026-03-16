@@ -13,4 +13,5 @@ data_temp_*/
 *.log
 .factory/
 data-raw.zip
+archive/
 

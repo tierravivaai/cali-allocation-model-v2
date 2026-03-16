@@ -79,7 +79,7 @@ def test_budget_table_alignment(mock_con):
     expected_parties = cbd_raw[cbd_raw['Party'] != 'Total']['Party'].dropna().unique()
     
     # Check that all 196 parties (after mapping) are present and marked as is_cbd_party
-    # We use the mapping logic from cross_check_cbd.py
+    # We use the mapping logic from scripts/cross_check_cbd.py
     name_map_df = mock_con.execute("SELECT * FROM name_map").df()
     mapping_dict = dict(zip(name_map_df['party_raw'], name_map_df['party_mapped']))
     
