@@ -51,3 +51,18 @@ def test_inverted_un_scale_turns_on_exclude_high_income():
     assert at.session_state["equality_mode"] is False
     assert at.slider(key="tsac_beta_pct").value == 0
     assert at.slider(key="sosac_gamma_pct").value == 0
+
+
+def test_negotiation_country_caption_tracks_selected_country_across_rerun():
+    at = AppTest.from_file("app.py", default_timeout=30)
+    at.run()
+
+    target = "Honduras"
+    at.selectbox(key="negotiation_target_party").set_value(target).run()
+
+    # Trigger a rerun through a related control to ensure selection remains synchronized
+    at.slider(key="tsac_beta_pct").set_value(6).run()
+
+    assert at.selectbox(key="negotiation_target_party").value == target
+    summary_caption = [c.value for c in at.caption if "Current setting allocates" in c.value][0]
+    assert summary_caption.startswith(f"{target}:")

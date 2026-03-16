@@ -701,7 +701,18 @@ if st.session_state.get("show_negotiation_dashboard", True):
         
         with detail_col1:
             st.write("**Country Allocation Waterfall**")
-            target_party = st.selectbox("Select Country:", options=sorted(results_df['party'].unique()), index=0)
+            negotiation_party_options = sorted(results_df['party'].unique())
+            if (
+                "negotiation_target_party" not in st.session_state
+                or st.session_state["negotiation_target_party"] not in negotiation_party_options
+            ):
+                st.session_state["negotiation_target_party"] = negotiation_party_options[0]
+
+            target_party = st.selectbox(
+                "Select Country:",
+                options=negotiation_party_options,
+                key="negotiation_target_party"
+            )
             row = results_df[results_df['party'] == target_party].iloc[0]
             
             # We need to compute deltas for the waterfall
@@ -723,48 +734,96 @@ if st.session_state.get("show_negotiation_dashboard", True):
             st.plotly_chart(fig, use_container_width=True)
 
         with detail_col2:
-            st.write("**TSAC vs SOSAC Sensitivity Heatmap**")
-            target_group = st.selectbox("Metric to track:", ["LDC Total Share (%)", "SIDS Total Share (%)", "Africa Total Share (%)"], key="heatmap_metric")
-            
-            # Simple pre-computed/simulated heatmap logic for speed (mock-up for now, could be real-time if optimized)
-            # For real-time, we'd need a loop, but we can sample a few points
-            betas = [0.0, 0.1, 0.2, 0.3]
-            gammas = [0.0, 0.05, 0.1, 0.15, 0.2]
-            
-            # Real-time computation (approx 20 points, should be fast enough)
-            z_data = []
-            for g in gammas:
-                row_z = []
-                for b in betas:
-                    # Calculate allocations for this pair
-                    # To keep it fast, we only sum the target group
-                    # Final Share = (1-b-g)*iusaf + b*tsac + g*sosac
-                    # We can use the pre-computed component shares from results_df
-                    alpha = 1.0 - b - g
-                    temp_final = alpha * results_df['iusaf_share'] + b * results_df['tsac_share'] + g * results_df['sosac_share']
-                    # normalize
-                    temp_final = temp_final / temp_final[results_df['eligible']].sum()
-                    
-                    if target_group == "LDC Total Share (%)":
-                        val = temp_final[results_df['is_ldc'] & results_df['eligible']].sum() * 100
-                    elif target_group == "SIDS Total Share (%)":
-                        val = temp_final[results_df['is_sids'] & results_df['eligible']].sum() * 100
-                    else:
-                        val = temp_final[results_df['region'] == "Africa"].sum() * 100
-                    row_z.append(val)
-                z_data.append(row_z)
-                
-            fig = px.imshow(
-                z_data,
-                x=[f"β={b:.1f}" for b in betas],
-                y=[f"γ={g:.2f}" for g in gammas],
-                labels=dict(x="TSAC (Land) Weight", y="SOSAC (SIDS) Weight", color="Share %"),
-                text_auto=".1f",
-                aspect="auto",
-                color_continuous_scale='Viridis'
+            st.write("**How stewardship settings affect this country**")
+
+            n_eligible_for_reference = int(results_df['eligible'].sum())
+            equality_reference_m = (fund_size_usd / n_eligible_for_reference) / 1_000_000.0 if n_eligible_for_reference > 0 else 0.0
+
+            scenario_specs = [
+                ("IUSAF only", 0.00, 0.00, False),
+                ("Modest stewardship", 0.05, 0.03, False),
+                ("Stronger stewardship", 0.10, 0.05, False),
+                ("Current setting", float(tsac_beta), float(sosac_gamma), st.session_state.get("equality_mode", False)),
+            ]
+
+            scenario_rows = []
+            for scenario_name, beta_s, gamma_s, eq_mode_s in scenario_specs:
+                scenario_df = calculate_allocations(
+                    st.session_state.base_df,
+                    fund_size_usd,
+                    iplc_share,
+                    False,
+                    exclude_hi,
+                    floor_pct=floor_pct,
+                    ceiling_pct=ceiling_pct,
+                    tsac_beta=beta_s,
+                    sosac_gamma=gamma_s,
+                    equality_mode=eq_mode_s,
+                    un_scale_mode=st.session_state.get("un_scale_mode", "raw_inversion")
+                )
+
+                party_row = scenario_df[scenario_df['party'] == target_party].iloc[0]
+                allocation_m = float(party_row['total_allocation'])
+                diff_m = allocation_m - equality_reference_m
+
+                eligible_rank_df = scenario_df[scenario_df['eligible']].sort_values(
+                    by=['total_allocation', 'party'], ascending=[False, True]
+                ).reset_index(drop=True)
+                rank_series = eligible_rank_df.index[eligible_rank_df['party'] == target_party]
+                rank_value = int(rank_series[0] + 1) if len(rank_series) > 0 else None
+
+                scenario_rows.append({
+                    "scenario": scenario_name,
+                    "allocation_m": allocation_m,
+                    "diff_from_equality_m": diff_m,
+                    "rank": rank_value,
+                    "country": target_party,
+                })
+
+            scenario_compare_df = pd.DataFrame(scenario_rows)
+
+            fig = px.bar(
+                scenario_compare_df,
+                x='scenario',
+                y='allocation_m',
+                labels={'scenario': 'Scenario', 'allocation_m': 'Allocation (US$m)'},
+                text=scenario_compare_df['allocation_m'].map(lambda v: f"${v:,.2f}m")
             )
-            fig.update_layout(height=400, margin=dict(l=0, r=0, t=0, b=0))
+            fig.update_traces(
+                hovertemplate=(
+                    "%{customdata[0]}<br>"
+                    "Scenario: %{x}<br>"
+                    "Allocation: $%{y:,.2f}m<br>"
+                    "%{customdata[1]}<br>"
+                    "Rank: %{customdata[2]}<extra></extra>"
+                ),
+                customdata=np.stack([
+                    scenario_compare_df['country'],
+                    scenario_compare_df['diff_from_equality_m'].map(
+                        lambda d: f"{'Above' if d >= 0 else 'Below'} equality by ${abs(d):,.2f}m"
+                    ),
+                    scenario_compare_df['rank'].fillna('n/a').astype(str)
+                ], axis=-1),
+                textposition='outside'
+            )
+            fig.add_hline(
+                y=equality_reference_m,
+                line_dash='dash',
+                line_color='firebrick',
+                annotation_text='Equality reference',
+                annotation_position='top left'
+            )
+            fig.update_layout(height=400, margin=dict(l=0, r=0, t=0, b=0), showlegend=False)
             st.plotly_chart(fig, use_container_width=True)
+
+            current_alloc_m = float(scenario_compare_df.loc[scenario_compare_df['scenario'] == 'Current setting', 'allocation_m'].iloc[0])
+            iusaf_alloc_m = float(scenario_compare_df.loc[scenario_compare_df['scenario'] == 'IUSAF only', 'allocation_m'].iloc[0])
+            delta_current_vs_iusaf = current_alloc_m - iusaf_alloc_m
+            st.caption(
+                f"{target_party}: Current setting allocates ${current_alloc_m:,.2f}m; "
+                f"IUSAF only allocates ${iusaf_alloc_m:,.2f}m "
+                f"({delta_current_vs_iusaf:+,.2f}m difference)."
+            )
 
     current_tab_idx += 1
 
