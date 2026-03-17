@@ -31,13 +31,23 @@ This interactive tool illustrates how Cali Fund allocations would be distributed
    ```
 
 ## Methodology
-The model computes a blended share for each eligible Party based on three components:
+The allocation sequence is now applied in this order:
 
-1. **IUSAF (Inverted UN Scale of Assessments)**: The primary component. Each Party's UN Scale of Assessment share for 2027 is inverted (1/share), favouring countries with smaller relative economic capacity.
-2. **TSAC (Terrestrial Stewardship Allocation Component)**: A share proportional to each Party's land surface area (km²), using the latest non-null data from the World Bank.
-3. **SOSAC (SIDS Ocean Stewardship Allocation Component)**: A categorical share distributed equally among all eligible Small Island Developing States (SIDS), reflecting structural vulnerabilities regardless of land size.
+1. **Raw inversion (IUSAF base)**
+   - Each eligible Party’s UN assessed share is inverted (`1/share`) and normalised.
+   - This is the core sovereign-capacity baseline.
 
-The final share is determined by blending these components using user-adjustable weights ($\beta$ for TSAC and $\gamma$ for SOSAC):
+2. **Banded inversion (IUSAF option)**
+   - As an alternative to raw inversion, Parties are grouped into UN-share bands.
+   - Band weights are then normalised to form the IUSAF base.
+   - This reduces sensitivity to very small share differences while preserving an inverted-capacity logic.
+
+3. **Stewardship adjustments (TSAC and SOSAC)**
+   - **TSAC (Terrestrial Stewardship Allocation Component)**: proportional to land area (km²).
+   - **SOSAC (SIDS Ocean Stewardship Allocation Component)**: equal-share pool across eligible SIDS.
+   - These adjustments are blended on top of the selected IUSAF base using user-adjustable weights ($\beta$ for TSAC and $\gamma$ for SOSAC).
+
+Final share formula:
 > **Final Share = (1 - $\beta$ - $\gamma$) * IUSAF + $\beta$ * TSAC + $\gamma$ * SOSAC**
 
 ### Stewardship Slider Design
