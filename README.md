@@ -3,12 +3,11 @@
 This interactive tool illustrates how Cali Fund allocations would be distributed if based on the **latest UN Scale of Assessments (2025-2027)**, inverted to reflect relative need.
 
 ## Features
-- **Adjustable Fund Size**: Scale the annual Cali Fund from $0.002bn ($2m) to $10.0bn.
-- **IPLC Earmark**: Set the percentage earmarked for Indigenous Peoples & Local Communities (50% to 80%).
+- **Adjustable Fund Size**: Scale the annual Cali Fund from $0.002bn ($2m) to $10.0bn. Scenario steps at 50, 200, 500, 1 billion
+- **IPLC Component**: Set the percentage for Indigenous Peoples & Local Communities (50% to 80%).
 - **Multi-perspective views**:
     - Detailed Party-level table.
     - Regional aggregations (UNSD M49).
-    - EU Block summary.
     - Share by WB Income Group.
     - Developmental groupings (LDC, SIDS).
 - **High Income Filter**: Ability to toggle High Income countries out of the allocation pool (off by default on initial load for true-equality start).
@@ -33,14 +32,16 @@ This interactive tool illustrates how Cali Fund allocations would be distributed
 ## Methodology
 The allocation sequence is now applied in this order:
 
-1. **Raw inversion (IUSAF base)**
+1. **Raw inversion (IUSAF raw)**
    - Each eligible Party’s UN assessed share is inverted (`1/share`) and normalised.
-   - This is the core sovereign-capacity baseline.
+   - This is the raw sovereign-capacity baseline and is included for
+   transparency.
 
-2. **Banded inversion (IUSAF option)**
+2. **Banded inversion (IUSAF default)**
    - As an alternative to raw inversion, Parties are grouped into UN-share bands.
    - Band weights are then normalised to form the IUSAF base.
    - This reduces sensitivity to very small share differences while preserving an inverted-capacity logic.
+   - This is the default IUSAF baseline
 
 3. **Stewardship adjustments (TSAC and SOSAC)**
    - **TSAC (Terrestrial Stewardship Allocation Component)**: proportional to land area (km²).
@@ -68,6 +69,9 @@ Final share formula:
 - **Land Area**: World Bank indicator `AG.LND.TOTL.K2` (Land area in sq. km).
 
 ## Floor Calculation (Minimum Share per Eligible Country)
+
+Floors and ceilings are currently unused in the model. They 
+are provided as options to be used only if necessary. 
 
 ### Purpose
 The floor sets a minimum percentage of the total fund that each eligible country must receive under the allocation model.
@@ -97,6 +101,9 @@ The floor does not represent entitlement or guaranteed disbursement.
 It is a modelling parameter that illustrates how a minimum allocation rule would alter the distribution of resources under the inverted UN framework.
 
 ## Ceiling Calculation (Maximum Share per Eligible Country)
+
+Floors and ceilings are currently unused in the model. They 
+are provided as options to be used only if necessary. 
 
 ### Purpose
 The ceiling sets a maximum percentage of the total fund that any eligible country may receive.
