@@ -24,10 +24,13 @@ This interactive tool illustrates how Cali Fund allocations would be distributed
    ```bash
    pip install -r requirements.txt
    ```
-3. **Run the application**:
+3. **Run the applications**:
    ```bash
    streamlit run app.py
+   streamlit run sensitivity.py
    ```
+
+`app.py` is the main negotiation/policy interface. `sensitivity.py` is a dedicated robustness-testing and reporting app for parameter sweeps, diagnostics, threshold checks, and markdown/CSV exports.
 
 ## Methodology
 The allocation sequence is now applied in this order:
@@ -143,7 +146,14 @@ The model is validated against the **CBD COP16 Budget Table** (`cbd_cop16_budget
 - **Validation Rule**: Exactly **196 Parties** (including the European Union) must be present and correctly mapped.
 - **Location**: `tests/test_logic.py` -> `test_cbd_party_count` and `test_budget_table_alignment`.
 
-### 1b. TSAC & SOSAC Component Integrity
+### 1b. IUSAF Inversion Logic (Raw and Banded)
+The model validates both inversion routes used for the IUSAF baseline.
+- **Validation Rule (raw inversion path)**: Default inversion path remains numerically consistent in full-allocation tests (sum integrity and eligibility behavior).
+- **Validation Rule (banded inversion path)**: Every eligible Party receives a valid band and band weight, and band-based IUSAF shares normalise correctly.
+- **Validation Rule (mode consistency)**: Baseline comparisons respect the selected `un_scale_mode`.
+- **Location**: `tests/test_tiny_scenarios.py`, `tests/test_band_inversion.py`, and `tests/test_negotiator_dashboard.py::test_un_scale_mode_consistency_in_baseline`.
+
+### 1c. TSAC & SOSAC Component Integrity
 New tests verify the blending of the three allocation components.
 - **Validation Rule**: `Sum(Final Share) = 1.0`.
 - **Validation Rule**: Isolation tests (e.g. if $\gamma=1.0$, only SIDS receive funds).
