@@ -54,7 +54,7 @@ def test_inverted_un_scale_turns_on_exclude_high_income():
     at.checkbox(key="exclude_hi").set_value(False).run()
     assert at.checkbox(key="exclude_hi").value is False
 
-    inverted_button = [b for b in at.button if b.label == "Inverted UN Scale"][0]
+    inverted_button = [b for b in at.button if b.label == "2. Inverted UN Scale"][0]
     inverted_button.click().run()
 
     assert at.checkbox(key="exclude_hi").value is True
@@ -76,3 +76,63 @@ def test_negotiation_country_caption_tracks_selected_country_across_rerun():
     assert at.selectbox(key="negotiation_target_party").value == target
     summary_caption = [c.value for c in at.caption if "Current setting allocates" in c.value][0]
     assert summary_caption.startswith(f"{target}:")
+
+
+def test_fund_size_scenario_markers_update_slider():
+    at = AppTest.from_file("app.py", default_timeout=30)
+    at.run()
+
+    button_50m = [b for b in at.button if b.label == "$50m"][0]
+    button_50m.click().run()
+    assert at.slider(key="fund_size_bn").value == 0.05
+
+    button_200m = [b for b in at.button if b.label == "$200m"][0]
+    button_200m.click().run()
+    assert at.slider(key="fund_size_bn").value == 0.2
+
+    button_500m = [b for b in at.button if b.label == "$500m"][0]
+    button_500m.click().run()
+    assert at.slider(key="fund_size_bn").value == 0.5
+
+    button_1bn = [b for b in at.button if b.label == "$1bn"][0]
+    button_1bn.click().run()
+    assert at.slider(key="fund_size_bn").value == 1.0
+
+
+def test_terrestrial_stewardship_preset_sets_tsac_max_and_sosac_zero():
+    at = AppTest.from_file("app.py", default_timeout=30)
+    at.run()
+
+    at.checkbox(key="exclude_hi").set_value(False).run()
+    terrestrial_button = [b for b in at.button if b.label == "3. Terrestrial Stewardship"][0]
+    terrestrial_button.click().run()
+
+    assert at.checkbox(key="exclude_hi").value is True
+    assert at.slider(key="tsac_beta_pct").value == 15
+    assert at.slider(key="sosac_gamma_pct").value == 0
+
+
+def test_oceans_stewardship_preset_sets_sosac_max_and_tsac_zero():
+    at = AppTest.from_file("app.py", default_timeout=30)
+    at.run()
+
+    at.checkbox(key="exclude_hi").set_value(False).run()
+    oceans_button = [b for b in at.button if b.label == "4. Oceans Stewardship"][0]
+    oceans_button.click().run()
+
+    assert at.checkbox(key="exclude_hi").value is True
+    assert at.slider(key="tsac_beta_pct").value == 0
+    assert at.slider(key="sosac_gamma_pct").value == 10
+
+
+def test_balanced_preset_turns_on_exclude_high_income():
+    at = AppTest.from_file("app.py", default_timeout=30)
+    at.run()
+
+    at.checkbox(key="exclude_hi").set_value(False).run()
+    balanced_button = [b for b in at.button if b.label == "5. Balanced"][0]
+    balanced_button.click().run()
+
+    assert at.checkbox(key="exclude_hi").value is True
+    assert at.slider(key="tsac_beta_pct").value == 5
+    assert at.slider(key="sosac_gamma_pct").value == 3

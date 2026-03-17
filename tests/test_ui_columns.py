@@ -1,8 +1,10 @@
 import pytest
 import pandas as pd
 import duckdb
+import re
+from pathlib import Path
 from logic.data_loader import load_data, get_base_data
-from logic.calculator import calculate_allocations, aggregate_by_region, aggregate_by_income
+from logic.calculator import calculate_allocations, aggregate_by_region, aggregate_by_income, aggregate_special_groups
 
 @pytest.fixture
 def mock_con():
@@ -69,3 +71,31 @@ def test_inversion_comparison_headlines(mock_con):
     assert n_eligible_hi_excluded < n_eligible_hi_included
     assert n_eligible_hi_excluded == 142 # 196 - (HIC-SIDS)
     assert n_eligible_hi_included == 196
+
+
+def test_tab_order_keeps_sids_before_income_tabs():
+    app_text = Path("app.py").read_text(encoding="utf-8")
+    match = re.search(r"tabs\s*=\s*\[(.*?)\]", app_text, re.DOTALL)
+    assert match is not None
+
+    tabs_block = match.group(1)
+    tab_sequence = ["LDC Share", "SIDS", "Low Income", "Middle Income", "High Income"]
+    positions = [tabs_block.index(f'"{label}"') for label in tab_sequence]
+    assert positions == sorted(positions)
+
+
+def test_income_and_sids_tab_totals_match_expected_categories(mock_con):
+    base_df = get_base_data(mock_con)
+    results_df = calculate_allocations(base_df, 1_000_000_000, 50)
+
+    low_total = results_df[results_df['WB Income Group'] == 'Low income']['total_allocation'].sum()
+    mid_total = results_df[results_df['WB Income Group'].isin(['Lower middle income', 'Upper middle income'])]['total_allocation'].sum()
+    high_total = results_df[results_df['WB Income Group'] == 'High income']['total_allocation'].sum()
+
+    income_mask = results_df['WB Income Group'].isin(['Low income', 'Lower middle income', 'Upper middle income', 'High income'])
+    expected_income_total = results_df[income_mask]['total_allocation'].sum()
+    assert pytest.approx(low_total + mid_total + high_total, 0.001) == expected_income_total
+
+    _, sids_total = aggregate_special_groups(results_df)
+    expected_sids_total = results_df[results_df['eligible'] & results_df['is_sids']]['total_allocation'].sum()
+    assert pytest.approx(sids_total['total_allocation'], 0.001) == expected_sids_total

@@ -112,6 +112,23 @@ if st.sidebar.button("Reset to default"):
     st.session_state["un_scale_mode"] = "band_inversion"
     st.rerun()
 
+st.sidebar.caption(":gray[Default is raw equality between all Parties]")
+
+st.sidebar.markdown("**Scenario Sizes**")
+marker_col1, marker_col2 = st.sidebar.columns(2)
+if marker_col1.button("$50m"):
+    st.session_state["fund_size_bn"] = 0.05
+    st.rerun()
+if marker_col2.button("$200m"):
+    st.session_state["fund_size_bn"] = 0.2
+    st.rerun()
+if marker_col1.button("$500m"):
+    st.session_state["fund_size_bn"] = 0.5
+    st.rerun()
+if marker_col2.button("$1bn"):
+    st.session_state["fund_size_bn"] = 1.0
+    st.rerun()
+
 fund_size_bn = st.sidebar.slider(
     "Annual Cali Fund size (USD billion)",
     min_value=0.002,   # $2m
@@ -136,7 +153,7 @@ st.session_state["un_scale_mode"] = "raw_inversion" if un_scale_mode == "Raw inv
 with st.sidebar.expander("Negotiation Presets", expanded=True):
     col_p1, col_p2 = st.columns(2)
     # Row 1
-    if col_p1.button("Equality", help="Even split between all eligible countries (Excludes HI except SIDS)"):
+    if col_p1.button("1. Equality", help="Even split between all eligible countries (Excludes HI except SIDS)"):
         st.session_state["tsac_beta"] = 0.0
         st.session_state["sosac_gamma"] = 0.0
         st.session_state["tsac_beta_pct"] = 0
@@ -144,7 +161,7 @@ with st.sidebar.expander("Negotiation Presets", expanded=True):
         st.session_state["equality_mode"] = True
         st.session_state["exclude_hi"] = True
         st.rerun()
-    if col_p2.button("Inverted UN Scale", help="TSAC=0, SOSAC=0 (Pure IUSAF)"):
+    if col_p2.button("2. Inverted UN Scale", help="TSAC=0, SOSAC=0 (Pure IUSAF)"):
         st.session_state["tsac_beta"] = 0.0
         st.session_state["sosac_gamma"] = 0.0
         st.session_state["tsac_beta_pct"] = 0
@@ -154,27 +171,30 @@ with st.sidebar.expander("Negotiation Presets", expanded=True):
         st.rerun()
     
     # Row 2
-    if col_p1.button("Terrestrial Stewardship", help="TSAC=0.15, SOSAC=0.05"):
+    if col_p1.button("3. Terrestrial Stewardship", help="TSAC=max, SOSAC=0"):
         st.session_state["tsac_beta"] = 0.15
-        st.session_state["sosac_gamma"] = 0.05
+        st.session_state["sosac_gamma"] = 0.0
         st.session_state["tsac_beta_pct"] = 15
-        st.session_state["sosac_gamma_pct"] = 5
+        st.session_state["sosac_gamma_pct"] = 0
+        st.session_state["exclude_hi"] = True
         st.session_state["equality_mode"] = False
         st.rerun()
-    if col_p2.button("Oceans Stewardship", help="TSAC=0.05, SOSAC=0.10"):
-        st.session_state["tsac_beta"] = 0.05
+    if col_p2.button("4. Oceans Stewardship", help="TSAC=0, SOSAC=max"):
+        st.session_state["tsac_beta"] = 0.0
         st.session_state["sosac_gamma"] = 0.10
-        st.session_state["tsac_beta_pct"] = 5
+        st.session_state["tsac_beta_pct"] = 0
         st.session_state["sosac_gamma_pct"] = 10
+        st.session_state["exclude_hi"] = True
         st.session_state["equality_mode"] = False
         st.rerun()
         
     # Row 3 (Full width)
-    if st.button("Balanced", help="TSAC=0.05, SOSAC=0.03 (Default)", use_container_width=True):
+    if st.button("5. Balanced", help="TSAC=0.05, SOSAC=0.03 (Default)", use_container_width=True):
         st.session_state["tsac_beta"] = 0.05
         st.session_state["sosac_gamma"] = 0.03
         st.session_state["tsac_beta_pct"] = 5
         st.session_state["sosac_gamma_pct"] = 3
+        st.session_state["exclude_hi"] = True
         st.session_state["equality_mode"] = False
         st.rerun()
 
@@ -512,10 +532,10 @@ tabs = [
     "By UN Intermediate Region",
     "Share by Income Group",
     "LDC Share", 
+    "SIDS",
     "Low Income",
     "Middle Income",
     "High Income",
-    "SIDS",
     "Inversion Comparison"
 ]
 

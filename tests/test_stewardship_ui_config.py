@@ -41,7 +41,7 @@ def test_tsac_sosac_defaults_and_ranges_in_app_config():
     assert 'if tsac_beta + sosac_gamma >= 1.0:' in app_text
     assert 'st.session_state["tsac_beta"] = 0.05' in app_text
     assert 'st.session_state["sosac_gamma"] = 0.03' in app_text
-    assert 'if st.button("Balanced", help="TSAC=0.05, SOSAC=0.03 (Default)", use_container_width=True):' in app_text
+    assert 'if st.button("5. Balanced", help="TSAC=0.05, SOSAC=0.03 (Default)", use_container_width=True):' in app_text
 
     assert '**How stewardship settings affect this country**' in app_text
     assert '"IUSAF only", 0.00, 0.00, False' in app_text
