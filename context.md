@@ -37,3 +37,5 @@
 
 ## Notes for Next Session
 - **UI/UX Refinement**: Continued feedback on the placement and functionality of the negotiation tools is expected.
+- Documentation will be needed with numbers for docs showing the raw inversion. Documentation will be beeded for the band inversion explaining the logic and the weightings. 
+
