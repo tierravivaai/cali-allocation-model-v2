@@ -1,5 +1,13 @@
 # Cali Fund Allocation Model (Inverted UN Scale Option)
 
+## NOTE: 
+
+This repository contains the code for Version 2 of the Inverted United Nations Scale of Assessment model. It is now deprecated and archived. It has been superseded by Version 3 located at [https://github.com/tierravivaai/cali-allocation-model-v3](https://github.com/tierravivaai/cali-allocation-model-v3)
+
+The Version 2 model introduced the concept of stewardship based overlays to recognise Terrestrial and Ocean biodiversity stewardship as an element of the model (TSAC and SOSAC respectively). Sensitivity tests are also developed and reported. Version 3 of the model was based on the outcomes of these exercises. 
+
+## Purpose
+
 This interactive tool illustrates how Cali Fund allocations would be distributed if based on the **latest UN Scale of Assessments (2025-2027)**, inverted to reflect relative need.
 
 ## Features
